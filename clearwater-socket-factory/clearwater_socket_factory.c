@@ -232,6 +232,14 @@ void process_one_request(int listen_socket)
   if (shared_sock < 0)
   {
     close(client_sock);
+
+    int reconnect_timeout = 10000;  // If connect fails, retry every 10 seconds.
+    while (reconnect_timeout > 0)
+    {
+        usleep(1000);
+        reconnect_timeout -= 1000;
+    }
+
     return;
   }
 
