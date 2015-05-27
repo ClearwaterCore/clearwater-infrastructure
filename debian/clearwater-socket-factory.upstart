@@ -11,6 +11,8 @@ stop on runlevel [!2345]
 respawn
 
 script
+  set +e
   . /etc/clearwater/config
+  set -e
   /usr/share/clearwater/bin/clearwater_socket_factory "$sas_server"
 end script
