@@ -1,0 +1,2 @@
+. /etc/clearwater/local_config
+. /etc/clearwater/shared_config

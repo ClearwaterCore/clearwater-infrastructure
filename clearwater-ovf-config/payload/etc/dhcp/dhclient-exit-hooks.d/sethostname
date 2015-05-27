@@ -1,0 +1,38 @@
+#!/bin/sh
+
+# dhclient change hostname script for Ubuntu
+# /etc/dhcp/dhclient-exit-hooks.d/sethostname
+# logs in /var/log/upstart/network-interface-eth0.log
+
+# for debugging:
+echo "sethostname BEGIN"
+export
+#set -x
+
+rm -f /tmp/dhcp.${interface}.env
+
+if [[ "$reason" = "BOUND" || "$reason" = "REBOOT" || "$reason" = "TIMEOUT" ]]; then
+    export > /tmp/dhcp.${interface}.env
+
+    echo new_ip_address=$new_ip_address
+    echo new_host_name=$new_host_name
+    echo new_domain_name=$new_domain_name
+
+    oldhostname=$(hostname -s)
+    if [ "$oldhostname" != "$new_host_name" ]; then
+        # Rename Host
+        echo $new_host_name > /etc/hostname
+        hostname -F /etc/hostname
+
+        # Update /etc/hosts if needed
+        TMPHOSTS=/etc/hosts.dhcp.new
+        grep -v '127[.]0[.]1[.]1[[:space:]]' < /etc/hosts > $TMPHOSTS
+        mv $TMPHOSTS /etc/hosts
+
+        # Recreate SSH2 keys
+        export DEBIAN_FRONTEND=noninteractive
+        dpkg-reconfigure openssh-server
+    fi
+fi
+
+echo "sethostname END"
