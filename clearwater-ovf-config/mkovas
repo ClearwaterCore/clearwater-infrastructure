@@ -426,46 +426,45 @@ for node_type in "${node_types[@]}"; do
     VM_power_down CC-${node_type}-${ccVersion}${ccQualifier}
 done
 
-if [ $VMs_only -eq 0 ]; then
-    rm -f ${OVF_dir}/CC-${ccVersion}${ccQualifier}*
+rm -f ${OVF_dir}/CC-${ccVersion}${ccQualifier}*
 
-    for node_type in "${node_types[@]}"; do
-	vmx=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"find /vmfs -name \"CC-${node_type}-${ccVersion}${ccQualifier}.vmx\" -print0\|xargs -0 ls -lart\"|awk '{print $9}'|tail -1)
-	vmid=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} /bin/vim-cmd vmsvc/getallvms 2>&1 |grep -v Warning:|grep c"c-${node_type}-${ccVersion}${ccQualifier}.vmx"|awk '{print $1}')
-	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"grep "ethernet0[.]" ${vmx}\" > /tmp/CC-${node_type}-${ccVersion}${ccQualifier}.eth0.cfg
+for node_type in "${node_types[@]}"; do
+    vmx=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"find /vmfs -name \"CC-${node_type}-${ccVersion}${ccQualifier}.vmx\" -print0\|xargs -0 ls -lart\"|awk '{print $9}'|tail -1)
+    vmid=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} /bin/vim-cmd vmsvc/getallvms 2>&1 |grep -v Warning:|grep c"c-${node_type}-${ccVersion}${ccQualifier}.vmx"|awk '{print $1}')
+    ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"grep "ethernet0[.]" ${vmx}\" > /tmp/CC-${node_type}-${ccVersion}${ccQualifier}.eth0.cfg
 
-	VM_power_down CC-${node_type}-${ccVersion}${ccQualifier}
+    VM_power_down CC-${node_type}-${ccVersion}${ccQualifier}
 
-	if [ 1 -eq 1 ]; then
-	    printf "Updating settings in VM...\n"
-	    ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sed -ie '/^ethernet0[.]/d\;/^numvcpus/d\;/^memSize/d' ${vmx} 2>&1|sed -e 's#^#   #'
-	    scp -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/CC-${node_type}-${ccVersion}${ccQualifier}.eth0.cfg ${vSphere_user}@${ESXi_host}:/tmp 2>&1|sed -e 's#^#   #'
-	    ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"cat /tmp/CC-${node_type}-${ccVersion}${ccQualifier}.eth0.cfg \>\> ${vmx}\" 2>&1|sed -e 's#^#   #'
-	    ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} 'sh -c "echo memSize = \\\"4096\\\"" > /tmp/vmx' 2>&1|sed -e 's#^#   #'
-	    ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} 'sh -c "echo numvcpus = \\\"2\\\"" >> /tmp/vmx' 2>&1|sed -e 's#^#   #'
-	    ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"cat /tmp/vmx \>\> ${vmx}\" 2>&1|sed -e 's#^#   #'
+    if [ 1 -eq 1 ]; then
+	printf "Updating settings in VM...\n"
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sed -ie '/^ethernet0[.]/d\;/^numvcpus/d\;/^memSize/d' ${vmx} 2>&1|sed -e 's#^#   #'
+	scp -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/CC-${node_type}-${ccVersion}${ccQualifier}.eth0.cfg ${vSphere_user}@${ESXi_host}:/tmp 2>&1|sed -e 's#^#   #'
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"cat /tmp/CC-${node_type}-${ccVersion}${ccQualifier}.eth0.cfg \>\> ${vmx}\" 2>&1|sed -e 's#^#   #'
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} 'sh -c "echo memSize = \\\"4096\\\"" > /tmp/vmx' 2>&1|sed -e 's#^#   #'
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} 'sh -c "echo numvcpus = \\\"2\\\"" >> /tmp/vmx' 2>&1|sed -e 's#^#   #'
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"cat /tmp/vmx \>\> ${vmx}\" 2>&1|sed -e 's#^#   #'
 
-	    printf "Reloading VM CC-${node_type}-${ccVersion}${ccQualifier}...\n"
-	    ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} /bin/vim-cmd vmsvc/reload ${vmid} 2>&1|sed -e 's#^#   #'
-	fi
+	printf "Reloading VM CC-${node_type}-${ccVersion}${ccQualifier}...\n"
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} /bin/vim-cmd vmsvc/reload ${vmid} 2>&1|sed -e 's#^#   #'
+    fi
 
-        # There seems to be some time lag between the above register and when the vCenter
-        # actually knows about it...
-	sleep 15
-	printf "Retrieving OVF for CC-${node_type}-${ccVersion}${ccQualifier}...\n"
-	(time stdbuf -i0 -o0 -e0 ovftool --overwrite "vi://${vSphere_user}:${vSphere_password}@${vCenter}/RichLab/vm/CC-${node_type}-${ccVersion}${ccQualifier}" ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf) 2>&1|sed -e 's#^#   #'
-	printf "\n"
+    # There seems to be some time lag between the above register and when the vCenter
+    # actually knows about it...
+    sleep 15
+    printf "Retrieving OVF for CC-${node_type}-${ccVersion}${ccQualifier}...\n"
+    (time stdbuf -i0 -o0 -e0 ovftool --overwrite "vi://${vSphere_user}:${vSphere_password}@${vCenter}/RichLab/vm/CC-${node_type}-${ccVersion}${ccQualifier}" ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf) 2>&1|sed -e 's#^#   #'
+    printf "\n"
 
-	if [ -e ${mydir}/properties.ovf ]; then
-	    printf "Adding property definitions to OVF...\n"
-	    # Add our property definitions to the OVF
-	    sed -ie "/<\/VirtualHardwareSection>/ r ${mydir}/properties.ovf" ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf
-	    rm -f ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovfe
-	fi
-
-	sed -ie '/<AnnotationSection/,/<\/AnnotationSection>/d' ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf 
+    if [ -e ${mydir}/properties.ovf ]; then
+	printf "Adding property definitions to OVF...\n"
+	# Add our property definitions to the OVF
+	sed -ie "/<\/VirtualHardwareSection>/ r ${mydir}/properties.ovf" ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf
 	rm -f ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovfe
-	cat > /tmp/$$.ann <<EOF
+    fi
+
+    sed -ie '/<AnnotationSection/,/<\/AnnotationSection>/d' ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf 
+    rm -f ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovfe
+    cat > /tmp/$$.ann <<EOF
     <AnnotationSection ovf:required="false">
       <Info>A human-readable annotation</Info>
       <Annotation>
@@ -492,10 +491,12 @@ EOF
 	    printf "\n"
 	fi
 
-	printf "Converting CC-${node_type}-${ccVersion}${ccQualifier} OVF to OVA...\n"
-	(time stdbuf -i0 -o0 -e0 ovftool --overwrite ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ova) 2>&1|sed -e 's#^#   #'
-	printf "\n"
-	chmod +r ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ova
+	if [ $VMs_only -eq 0 ]; then
+	    printf "Converting CC-${node_type}-${ccVersion}${ccQualifier} OVF to OVA...\n"
+	    (time stdbuf -i0 -o0 -e0 ovftool --overwrite ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ova) 2>&1|sed -e 's#^#   #'
+	    printf "\n"
+	    chmod +r ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ova
+	fi
 
 	printf "Removing CC-${node_type}-${ccVersion}${ccQualifier} OVF files...\n"
 	find ${OVF_dir} -name "CC-${node_type}-${ccVersion}${ccQualifier}*" \! -iname "*.ova" -type f -print0|xargs -0 rm -vf 2>&1|sed -e 's#^#   #'
@@ -507,11 +508,10 @@ Publishing CC-${node_type}-${ccVersion}${ccQualifier}.ova to\n\
   //${ova_target_ip}/softwaredistribution/VirtAppliances/VMware/OBU (${ova_target_dir}):\n"
 	    (echo cp -vpu ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ova ${ova_target_dir};time cp -vpu ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ova ${ova_target_dir}) 2>&1|sed -e 's#^#    #'
 	fi
-    done
+done
 
-    if [ $PUBLISH -ne 0 ]; then
-	umount -f //${ova_target_ip}/softwaredistribution/VirtAppliances/VMware/OBU > /dev/null 2>&1
-    fi
+if [ $PUBLISH -ne 0 ]; then
+    umount -f //${ova_target_ip}/softwaredistribution/VirtAppliances/VMware/OBU > /dev/null 2>&1
 fi
 
 VM_destroy CC-${ccVersion}${ccQualifier}
