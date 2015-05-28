@@ -478,6 +478,7 @@ else
 
 	cc_cfg_files=$(find ${cfg_dir} -type f -print 2> /dev/null|egrep -E "($(echo ${cc_dirs[@]}|sed -e 's#[[:space:]]\+#|#g'))")
 	noncc_cfg_files=$(find ${cfg_dir} -type f -print 2> /dev/null|egrep -v -E "($(echo ${cc_dirs[@]}|sed -e 's#[[:space:]]\+#|#g'))")
+	noncc_cfg_files="${noncc_cfg_files} $(ls -1 ${cfg_dir}/../noncc.* 2> /dev/null)"
 
 	if [ ! -z "$cc_cfg_files" ]; then
             cc_cfg_newest=$(ls -lrt --time-style=+%s ${cc_cfg_files}|tail -1|awk '{print $6}')
@@ -517,6 +518,9 @@ else
 		(
                     cd ${cfg_dir}
                     cp -rvp --parents $(cd ${cfg_dir}; find . -type f -print 2> /dev/null|egrep -v -E "($(echo ${cc_dirs[@]}|sed -e 's#[[:space:]]\+#|#g'))") /
+		    if [ -x ../noncc.postinst ]; then
+			../noncc.postinst
+		    fi
 		)
 		printf "${noncc_cfg_md5} ${noncc_cfg_newest}\n" > /etc/last_noncc_cfg
             fi
@@ -527,12 +531,12 @@ else
 	fi
     fi
 
-    subst_files=($(find ${cc_dirs[@]} -type f -print0|xargs -0 grep -l "\$[[][^]]*[]]"))
+    subst_files=($(find ${cc_dirs[@]} -type f -print0 2> /dev/null|xargs -0 grep -l "\$[[][^]]*[]]"))
     if [ "${#subst_files[@]}" -gt "0" ]; then
         for file in ${subst_files[@]}; do
 	    subst_vars "$file"
         done
-        subst_files=($(find ${cc_dirs[@]} -type f -print0|xargs -0 grep -l "\$[[][^]]*[]]"))
+        subst_files=($(find ${cc_dirs[@]} -type f -print0 2> /dev/null|xargs -0 grep -l "\$[[][^]]*[]]"))
         if [ "${#subst_files[@]}" -gt "0" ]; then
 	    err "ERROR: Invalid substitutions found:" "$(find ${cc_dirs[@]} -type f -print0|xargs -0 grep -n "\$[[][^]]*[]]")"
         fi

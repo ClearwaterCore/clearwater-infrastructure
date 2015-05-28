@@ -1,5 +1,12 @@
 #!/bin/bash
 
+vCenter=192.168.160.102
+VM6_host=192.168.160.230
+ESXi_host=${VM6_host}
+vSphere_user=root
+vSphere_password=vmware
+VM6_datastore="datastore1 (4)"
+
 mydir=$(cd `dirname $0`;pwd)
 cwd=$(pwd)
 
@@ -16,12 +23,12 @@ usage()
 Usage: $cmdname [OPTION...]\n\
 \n\
 Options:\n\
-  --publish         publish the OVAs to corporate area\n\
-  --no-ovas         don't make OVAs, just leave VMs on vCenter\n\
-  --no-templates    don't make vCenter templates, just leave VMs on vCenter\n\
-  --no-types TYPES  node types to make (default: $node_types)\n\
-  --qualified X     qualifier to be appended to VM/OVA name\n\
-  -h, --help        display this usage\n"
+  --publish           publish the OVAs to corporate area\n\
+  --no-ovas           don't make OVAs, just leave VMs on vCenter\n\
+  --no-templates      don't make vCenter templates, just leave VMs on vCenter\n\
+  --node-types TYPES  node types to make (default: $node_types)\n\
+  --qualified X       qualifier to be appended to VM/OVA name\n\
+  -h, --help          display this usage\n"
 
     printf "\n"
 
@@ -196,12 +203,6 @@ else
     ubu_base=ubu14-base-v7-1
 fi
 
-vCenter=192.168.160.102
-VM6_host=192.168.160.230
-ESXi_host=${VM6_host}
-vSphere_user=root
-vSphere_password=vmware
-VM6_datastore="datastore1 (4)"
 OVF_dir=${build_base}/OVAs
 node_types=( $(echo $node_types|sed -e 's#:# #g') )
 
@@ -391,7 +392,7 @@ for node_type in "${node_types[@]}"; do
 	    if [ $sta -ne 0 ]; then
 		continue
 	    fi
-	    sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} ${cwrm} > /dev/null 2>&1
+	    sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} rm -f /var/lib/dpkg/lock\;${cwrm} > /dev/null 2>&1
 	done
 	cwrm=ls
 
