@@ -1,0 +1,44 @@
+#!/bin/bash
+
+mydir=$(cd `dirname $0`;pwd)
+cwd=$(pwd)
+
+# Create directory for the payload
+rm -rf ${mydir}/CC-ISO
+mkdir -p ${mydir}/CC-ISO/iso/payload
+
+# Make a tarball of all the stuff we want in our payload ISO which is
+# easier than a bunch of copies.
+tar cvzf ${mydir}/CC-ISO/payload.tgz \
+    /etc/rsyslog.conf /etc/rsyslog.d/40-craftlog.conf \
+    /etc/clearwater/ent \
+    /etc/apt/certs \
+    /etc/apt/apt.conf.d/45core-repo_clearwater_metaswitch_com \
+    /etc/apt/sources.list.d/clearwater-core.list \
+    /etc/apt/trusted.gpg \
+    /etc/apt/trusted.gpg.d /root/.ssh
+
+# Untar the payload into the dirtory tree
+(
+    cd ${mydir}/CC-ISO/iso/payload
+    tar xvzf ${mydir}/CC-ISO/payload.tgz
+)
+
+# Make the ISO
+(
+    cd ${mydir}/CC-ISO
+    genisoimage -R -o payload.iso iso/
+)
+
+# Transfer the ISO to our vSphere datastore
+sshpass -p '!bootstrap' scp ${mydir}/CC-ISO/payload.iso root@192.168.160.230:/tmp
+
+# Mount the ISO locally and take a look
+mkdir -p /mnt/cdrom
+mount -o loop ${mydir}/CC-ISO/payload.iso /mnt/cdrom/
+
+find /mnt/cdrom -print0|xargs -0 ls -lad
+
+umount /mnt/cdrom
+rmdir /mnt/cdrom
+
