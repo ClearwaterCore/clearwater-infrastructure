@@ -24,6 +24,13 @@ tar cvzf ${mydir}/CC-ISO/payload.tgz \
     tar xvzf ${mydir}/CC-ISO/payload.tgz
 )
 
+# Add a postinst script
+cat > ${mydir}/CC-ISO/iso/noncc.postinst <<EOF
+#!/bin/bash -x
+restart rsyslog
+EOF
+chmod +x ${mydir}/CC-ISO/iso/noncc.postinst
+
 # Make the ISO
 (
     cd ${mydir}/CC-ISO
