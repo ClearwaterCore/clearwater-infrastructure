@@ -15,9 +15,9 @@ fi
 # HSS configuration
 dpkg-query -W 2>&1 |grep -q homestead-prov
 if [ $? -ne 0 ]; then
-   #hss_realm=${home_domain}
-   hss_hostname=hss.${home_domain}
-   hss_port=3868
+   hss_realm=${home_domain}
+   #hss_hostname=hss.${home_domain}
+   #hss_port=3868
    hss_reregistration_time=1800
    hss_mar_lowercase_unknown=Y
 else
@@ -39,3 +39,6 @@ enum_server=$(dig +noall +answer enum.${home_domain} 2>&1 | awk '{print $5}')
 
 # Billing configuration
 billing_realm=billing.${home_domain}
+
+# SNMP alarm/trap handler
+snmp_ip=alarm-sink.${home_domain}

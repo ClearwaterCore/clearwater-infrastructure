@@ -252,6 +252,27 @@ VM_power_up()
     printf "connected!\n"
 }
 
+VM_reboot()
+{
+    printf "Rebooting VM ${1}...\n"
+    ssh -i ~/.ssh/clearwateruser.pem ubuntu@richsiptest1.richlab.datcon.co.uk /usr/lib/vmware-vcli/apps/vm/vmcontrol.pl --url https://${vCenter} --username ${vSphere_user} --password ${vSphere_password} --vmname ${1} --operation reboot 2>&1|sed -e 's#^#   #'
+    printf "\n"
+    printf "Trying to connect to VM ${1}..."
+    while [ true ]; do
+	sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} hostname > /dev/null 2>&1
+	if [ $? -eq 0 ]; then
+	    sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} find /usr > /dev/null 2>&1
+	    if [ $? -eq 0 ]; then
+		break
+	    fi
+	    printf "+"
+	    continue
+	fi
+	printf "."
+    done
+    printf "connected!\n"
+}
+
 VM_destroy()
 {
     VM_power_down ${1}
@@ -378,21 +399,21 @@ printf "Updating APT on VM...\n"
 VM_power_down CC-${ccVersion}${ccQualifier}
 
 for node_type in "${node_types[@]}"; do
-    # Make way for node type VM
-    VM_destroy CC-${node_type}-${ccVersion}${ccQualifier}
-    VM_clone CC-${ccVersion}${ccQualifier} CC-${node_type}-${ccVersion}${ccQualifier}
-    VM_power_up CC-${node_type}-${ccVersion}${ccQualifier}
-
-    cwrm=ls
     let done=0
     while [ $done -eq 0 ]; do
+	# Make way for node type VM
+	VM_destroy CC-${node_type}-${ccVersion}${ccQualifier}
+	VM_clone CC-${ccVersion}${ccQualifier} CC-${node_type}-${ccVersion}${ccQualifier}
+	VM_power_up CC-${node_type}-${ccVersion}${ccQualifier}
+	cwrm=ls
+
 	sta=1
 	while [ $sta -ne 0 ]; do
 	    sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} ls > /dev/null 2>&1;sta=$?
 	    if [ $sta -ne 0 ]; then
 		continue
 	    fi
-	    sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} rm -f /var/lib/dpkg/lock\;${cwrm} > /dev/null 2>&1
+	    sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} rm -f /var/lib/dpkg/lock /var/cache/apt/archives/lock\;${cwrm} > /dev/null 2>&1
 	done
 	cwrm=ls
 

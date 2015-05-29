@@ -394,13 +394,15 @@ fi
 
 # Function for substituting our variables into config files
 declare -A vars
-vars[signaling_ip]=$signaling_ip
-vars[signalling_ip]=$signaling_ip
-vars[mgmt_ip]=$mgmt_ip
-vars[signaling_dns_server]=$new_domain_name_servers
-vars[signalling_dns_server]=$new_domain_name_servers
+vars[signaling_ip]=${signaling_ip}
+vars[signalling_ip]=${signaling_ip}
+vars[mgmt_ip]=${mgmt_ip}
+vars[signaling_dns_server]=${new_domain_name_servers}
+vars[signalling_dns_server]=${new_domain_name_servers}
 vars[etcd_cluster]=${etcd_cluster}
 vars[node_idx]=${node_idx}
+vars[local_site_name]=${local_site_name}
+vars[remote_site_name]=${remote_site_name}
 
 subst_vars()
 {

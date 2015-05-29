@@ -16,12 +16,15 @@ tar cvzf ${mydir}/CC-ISO/payload.tgz \
     /etc/apt/apt.conf.d/45core-repo_clearwater_metaswitch_com \
     /etc/apt/sources.list.d/clearwater-core.list \
     /etc/apt/trusted.gpg \
-    /etc/apt/trusted.gpg.d /root/.ssh
+    /etc/apt/trusted.gpg.d \
+    /root/.ssh \
+    /home/ubuntu/.ssh
 
 # Untar the payload into the dirtory tree
 (
     cd ${mydir}/CC-ISO/iso/payload
     tar xvzf ${mydir}/CC-ISO/payload.tgz
+    chown ubuntu:ubuntu home/ubuntu
 )
 
 # Add a postinst script
@@ -34,15 +37,15 @@ chmod +x ${mydir}/CC-ISO/iso/noncc.postinst
 # Make the ISO
 (
     cd ${mydir}/CC-ISO
-    genisoimage -R -o payload.iso iso/
+    genisoimage -R -o cc-ovf-payload.iso iso/
 )
 
 # Transfer the ISO to our vSphere datastore
-sshpass -p '!bootstrap' scp ${mydir}/CC-ISO/payload.iso root@192.168.160.230:/tmp
+sshpass -p '!bootstrap' scp ${mydir}/CC-ISO/cc-ovf-payload.iso root@192.168.160.230:/tmp
 
 # Mount the ISO locally and take a look
 mkdir -p /mnt/cdrom
-mount -o loop ${mydir}/CC-ISO/payload.iso /mnt/cdrom/
+mount -o loop ${mydir}/CC-ISO/cc-ovf-payload.iso /mnt/cdrom/
 
 find /mnt/cdrom -print0|xargs -0 ls -lad
 
