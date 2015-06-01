@@ -280,7 +280,13 @@ VM_destroy()
     vmx=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"find /vmfs -name \"${1}.vmx\" -print0\|xargs -0 ls -lart\"|awk '{print $9}'|tail -1)
     vmtx=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"find /vmfs -name \"${1}.vmtx\" -print\"|tail -1)
     if [ ! -z "$vmtx" ]; then
-	printf "\
+	printf "Marking ${1} as a VM for deletion...\n"
+	ssh -i ~/.ssh/clearwateruser.pem ubuntu@richsiptest1.richlab.datcon.co.uk /usr/lib/vmware-vcli/apps/vm/vmtemplate.pl --url https://${vCenter} --username ${vSphere_user} --password ${vSphere_password} --vmname ${1} --operation VM --pool mkovas --host ${ESXi_host} 2>&1|sed -e 's#^#   #'
+	printf "\n"
+
+	vmtx=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"find /vmfs -name \"${1}.vmtx\" -print\"|tail -1)
+	if [ ! -z "$vmtx" ]; then
+	    printf "\
 ****\n\
 *\n\
 * ERROR: Don't know how to destroy template ${1} (${vmtx})!\n\
@@ -288,10 +294,11 @@ VM_destroy()
 *   Use vSphere web client to remove template(s).\n\
 *\n\
 ****\n"
-	if [ $PUBLISH -ne 0 ]; then
-	    umount -f //${ova_target_ip}/softwaredistribution/VirtAppliances/VMware/OBU > /dev/null 2>&1
+	    if [ $PUBLISH -ne 0 ]; then
+		umount -f //${ova_target_ip}/softwaredistribution/VirtAppliances/VMware/OBU > /dev/null 2>&1
+	    fi
+	    exit 1
 	fi
-	exit 1
     fi
     vmid=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} /bin/vim-cmd vmsvc/getallvms 2>&1 |grep -v Warning:|grep ${1}|awk '{print $1}')
     if [[ "$vmid" =~ ^[0-9]+$ ]]; then
