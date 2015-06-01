@@ -465,7 +465,8 @@ for node_type in "${node_types[@]}"; do
     printf "Removing local repo for APT sources...\n"
     sta=1
     while [ $sta -ne 0 ]; do
-	sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} sed -ie 's/^deb file:\/var\/cc-ovf binary/#deb file:\/var\/cc-ovf binary/' /etc/apt/sources.list > /dev/null 2>&1;sta=$?
+	(sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} sed -ie \"s@^deb file:/var/cc-ovf binary@#deb file:/var/cc-ovf binary@\" /etc/apt/sources.list\; apt-get update;sta=$?;echo $sta > /tmp/sta) 2>&1|sed -e 's#^#   #'
+	sta=$(cat /tmp/sta)
 	if [ $sta -ne 0 ]; then
 	    continue
 	fi
