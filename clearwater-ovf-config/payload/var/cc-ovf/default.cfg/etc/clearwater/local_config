@@ -3,6 +3,9 @@ if [ "$(ip netns list)" = "signalling" ]; then
    signaling_dns_server=$(grep "^[[:space:]]*nameserver" /etc/netns/signalling/resolv.conf | awk '{print $2}')
    [ -z "$signaling_namespace" ] || 
    namespace_prefix="ip netns exec $signaling_namespace"
+else
+   namespace_prefix=
+
 fi
 sig_nic=$( $namespace_prefix /sbin/ifconfig -s|grep eth|awk '{print $1}'|head -1)
 mgmt_nic=$( /sbin/ifconfig -s|grep eth|awk '{print $1}'|head -1)
