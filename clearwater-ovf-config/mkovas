@@ -420,12 +420,11 @@ for node_type in "${node_types[@]}"; do
 	for type in $(echo $node_type|sed -e 's#,# #g'); do
 	    printf "Installing ${type} on VM...\n"
 	    (
-		sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} /var/cc-ovf/bin/install ${type}
-		sta=$?
-		echo $sta > /tmp/sta
+		(sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} /var/cc-ovf/bin/install ${type}; sta=$?; echo $sta > /tmp/sta) 2>&1 | tee /tmp/${type}.out
 	    ) 2>&1|sed -e 's#^#   #'
 	    sta=$(cat /tmp/sta)
-	    if [ $sta -ne 0 ]; then
+	    grep -q "ERROR:" /tmp/${type}.out
+	    if [[ $? -eq 0 || $sta -ne 0 ]]; then
 		printf "****\n*\n* WARN: failure installing $type - retrying!\n*\n****\n" 2>&1|sed -e 's#^#   #'
 		cwrm=clearwater-remove
 		break
@@ -433,16 +432,28 @@ for node_type in "${node_types[@]}"; do
 	done
 	if [ "$cwrm" == "ls" ]; then
 	    let done=1
+
+	    printf "What's installed per clearwater-version:\n"
+	    (
+		sta=1
+		while [ $sta -ne 0 ]; do
+		    (sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} clearwater-version;sta=$?;echo $sta > /tmp/sta) 2>&1 | tee /tmp/${type}.out
+		    sta=$(cat /tmp/sta)
+		    grep -q "clearwater-version: command not found" /tmp/${type}.out
+		    if [ $? -eq 0 ]; then
+			printf "****\n*\n* WARN: failure installing $type - retrying!\n*\n****\n" 2>&1|sed -e 's#^#   #'
+			cwrm=clearwater-remove
+			break
+		    fi
+		done
+	    ) 2>&1|sed -e 's#^#   #'
+	    grep -q "clearwater-version: command not found" /tmp/${type}.out
+	    if [ $? -eq 0 ]; then
+		cwrm=clearwater-remove
+	    	let done=0
+	    fi
 	fi
     done
-
-    printf "What's installed per clearwater-version:\n"
-    (
-	sta=1
-	while [ $sta -ne 0 ]; do
-	    sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} clearwater-version;sta=$?
-	done
-    ) 2>&1|sed -e 's#^#   #'
 
     VM_power_down CC-${node_type}-${ccVersion}${ccQualifier}
 done

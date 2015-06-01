@@ -374,23 +374,39 @@ if [ -r /tmp/dhcp.${sig_nic}.env ]; then
 fi
 
 # Send gratuitous ARP
+echo arping -c2 -A -I ${mgmt_nic} ${mgmt_ip} 2>&1 | sed -e 's#^#   #'
 arping -c2 -A -I ${mgmt_nic} ${mgmt_ip} 2>&1 | sed -e 's#^#   #'
 if [[ "$signaling_ip" != "$mgmt_ip" && ! -z "$new_domain_name_servers" ]]; then
     # Send gratuitous ARP 2>&1 | sed -e 's#^#   #'
-    arping -c2 -A -I ${signaling_nic} ${signaling_ip} 
+    echo arping -c2 -A -I ${sig_nic} ${signaling_ip} 2>&1 | sed -e 's#^#   #'
+    arping -c2 -A -I ${sig_nic} ${signaling_ip} 2>&1 | sed -e 's#^#   #'
 
     log "INFO: Configuring signalling network namespace"
 
+    echo ip netns add signalling 2>&1 | sed -e 's#^#   #'
     ip netns add signalling 2>&1 | sed -e 's#^#   #'
+    echo ip link set ${sig_nic} netns signalling 2>&1 | sed -e 's#^#   #'
     ip link set ${sig_nic} netns signalling 2>&1 | sed -e 's#^#   #'
     ip netns exec signalling ifconfig lo up 2>&1 | sed -e 's#^#   #'
+    echo ip netns exec signalling ifconfig lo up 2>&1 | sed -e 's#^#   #'
     ip netns exec signalling ifconfig ${sig_nic} $signaling_ip up 2>&1 | sed -e 's#^#   #'
+    echo ip netns exec signalling route add default gateway $new_routers dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
     ip netns exec signalling route add default gateway $new_routers dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
     mkdir -p /etc/netns/signalling
     printf "nameserver $new_domain_name_servers\n" > /etc/netns/signalling/resolv.conf
     printf "Debug info (signalling netns routing table):\n" 2>&1 | sed -e 's#^#   #'
+    echo ip netns exec signalling route 2>&1 | sed -e "s#^#     ${LINENO} #"
     ip netns exec signalling route 2>&1 | sed -e "s#^#     ${LINENO} #"
+
+    (
+	. /tmp/dhcp.${mgmt_nic}.env
+	echo route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
+	route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
+    )
 fi
+
+echo route 2>&1 | sed -e "s#^#     ${LINENO} #"
+route 2>&1 | sed -e "s#^#     ${LINENO} #"
 
 # Function for substituting our variables into config files
 declare -A vars
