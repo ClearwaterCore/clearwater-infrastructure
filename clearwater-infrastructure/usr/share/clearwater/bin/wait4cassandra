@@ -21,7 +21,7 @@ wait4cassandra()
             printf "${header}."
             header=""
             let "cnt=$cnt + 1"
-            if [ $cnt -gt 120 ]; then
+            if [ $cnt -gt 180 ]; then
                 printf "*** ERROR: Cassandra did not come online!\n"
                 return 1
             fi
@@ -34,7 +34,7 @@ wait4cassandra()
             printf "${header}+"
             header=""
             let "cnt=$cnt + 1"
-            if [ $cnt -gt 120 ]; then
+            if [ $cnt -gt 180 ]; then
                 printf "*** ERROR: Cassandra did not come online!\n"
                 exit 1
             fi
