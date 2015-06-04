@@ -69,7 +69,10 @@ then
 
   INITD_TEMP=$(mktemp -t $NAME-initd.XXXXXX) || exit 1
 
-  sed 's/^\(\s\{1,\}\)\(\<start-stop-daemon\>.*--\<start\>.*\)$/\1$namespace_prefix \2 # clearwater-infrastructure/' $INITD_PATH > $INITD_TEMP
+  sed -e '/^case/i \
+START_PREFIX=$namespace_prefix' $INITD_PATH > $INITD_TEMP
+
+#sed 's/^\(\s\{1,\}\)\(\<start-stop-daemon\>.*--\<start\>.*\)$/\1$namespace_prefix \2 # clearwater-infrastructure/' $INITD_PATH > $INITD_TEMP
 
   if ! cmp -s $INITD_PATH $INITD_TEMP
   then
