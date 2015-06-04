@@ -1,0 +1,44 @@
+home_domain=$(hostname -d)
+
+# Deployment definitions
+sprout_hostname=sprout.${home_domain}
+hs_hostname=homestead.${home_domain}:8888
+ralf_hostname=ralf.${home_domain}:10888
+chronos_hostname=$local_ip:7253
+
+if [ "$(ip netns list)" = "signalling" ]; then 
+    sprout_hostname_mgmt=sprout-mgmt.${home_domain}
+    hs_hostname_mgmt=homestead-mgmt.${home_domain}
+    ralf_hostname_mgmt=ralf-mgmt.${home_domain}:10888
+fi
+
+# HSS configuration
+dpkg-query -W 2>&1 |grep -q homestead-prov
+if [ $? -ne 0 ]; then
+   hss_realm=${home_domain}
+   #hss_hostname=hss.${home_domain}
+   #hss_port=3868
+   hss_reregistration_time=1800
+   hss_mar_lowercase_unknown=Y
+else
+    hs_provisioning_hostname=homestead.${home_domain}:8889
+fi
+
+# I-CSCF/S-CSCF configuration
+icscf=5052
+scscf=5054
+scscf_uri="sip:sprout.${home_domain};transport=TCP"
+
+# SAS configuration
+sas_server=sas.${home_domain}
+
+# Enum configuration:
+#   Note: Sprout wants an IP address not a FQDN, so we look it up
+enum_server=enum.${home_domain}
+enum_server=$(dig +noall +answer enum.${home_domain} 2>&1 | awk '{print $5}')
+
+# Billing configuration
+billing_realm=billing.${home_domain}
+
+# SNMP alarm/trap handler
+snmp_ip=alarm-sink.${home_domain}
