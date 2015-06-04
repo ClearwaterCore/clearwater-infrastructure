@@ -21,14 +21,9 @@ If this node is a founding member, set this to the nodes that will form the init
 
 
       <Category>IP Protocol</Category>
-      <Property ovf:key="mgmt_protocol" ovf:qualifiers="ValueMap{&quot;IPv4&quot;,&quot;IPv6&quot;}" ovf:type="string" ovf:userConfigurable="true" ovf:value="IPv4">
-        <Label>mgmt_protocol</Label>
+      <Property ovf:key="ip_protocol" ovf:qualifiers="ValueMap{&quot;IPv4&quot;,&quot;IPv4/IPv6&quot;}" ovf:type="string" ovf:userConfigurable="true" ovf:value="IPv4">
+        <Label>ip_protocol</Label>
       </Property>
-      <Category>IP Protocol</Category>
-      <Property ovf:key="sig_protocol" ovf:qualifiers="ValueMap{&quot;IPv4&quot;,&quot;IPv6&quot;}" ovf:type="string" ovf:userConfigurable="true" ovf:value="IPv4">
-        <Label>sig_protocol</Label>
-      </Property>
-
 
 
       <Category>Management IPv4 Config</Category>
