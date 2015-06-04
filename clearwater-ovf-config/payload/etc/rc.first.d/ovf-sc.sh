@@ -201,7 +201,8 @@ fi
 log "mgmt_nic=$mgmt_nic, sig_nic=$sig_nic"
 
 # Get rid of files from the last time
-rm -vf /tmp/dhcp.${mgmt_nic}.env /tmp/dhcp.${sig_nic}.env 2>&1 | sed -e "s#^#   #"
+rm -vf /var/tmp/dhcp.${mgmt_nic}-*.env /var/tmp/dhcp.${sig_nic}-*.env 2>&1 | sed -e "s#^#   #"
+rm -vf /tmp/dhcp.${mgmt_nic}-*.env /tmp/dhcp.${sig_nic}-*.env 2>&1 | sed -e "s#^#   #"
 
 # Configure the network interface(s) based on the following priority:
 #
@@ -270,15 +271,18 @@ fi
 
 if [ "${sig_protocol^^}" == "IPV6" ]; then
     doIPv6=1
+    echo 1 > /proc/sys/net/ipv6/conf/${sig_nic}/accept_ra
 fi
 if [ "${mgmt_protocol^^}" == "IPV6" ]; then
     doIPv6=1
+    echo 1 > /proc/sys/net/ipv6/conf/${mgmt_nic}/accept_ra
 fi
 
 # IPv4 self configuration
 if [ $doIPv4 -ne 0 ]; then
     # Force release of leases and install static fallback leases, if available
     dhclient -4 -r >> /var/log/ovf-sc.dhclient-4.log 2>&1 
+    cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
     rm -vf /var/lib/dhcp/*.leases 2>&1 | sed -e "s#^#   #"
     for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv4.lease" -o -name "${sig_nic}-ipv4.lease" \)); do
 	cat ${lease} >> /var/lib/dhcp/dhclient.leases
@@ -287,9 +291,11 @@ if [ $doIPv4 -ne 0 ]; then
     # Try DHCP again on all interfaces
     log "Retrying DHCP for ${mgmt_nic}..."
     dhclient -4 -v ${mgmt_nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
+    cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
     if [ "${sig_nic}" != "${mgmt_nic}" ]; then
 	log "Retrying DHCP for ${sig_nic}..."
 	dhclient -4 -v ${sig_nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
+	cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
     fi
 
     # Debugging
@@ -353,6 +359,7 @@ lease {\n\
 		    done
 		    log "Retrying DHCP for ${nic} to pickup values from properties..."
 		    dhclient -4 -v ${nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
+		    cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
 		fi
 	    fi
 	done
@@ -397,6 +404,7 @@ if [ $doIPv6 -ne 0 ]; then
     # Force release of leases and install static fallback leases, if available
     log "Releasing DHCP6 leases..."
     dhclient -6 -r -1 >> /var/log/ovf-sc.dhclient-6.log 2>&1 
+    cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
     rm -vf /var/lib/dhcp/*.leases 2>&1 | sed -e "s#^#   #"
     for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv6.lease" -o -name "${sig_nic}-ipv6.lease" \)); do
 	cat ${lease} >> /var/lib/dhcp/dhclient6.leases
@@ -407,9 +415,11 @@ if [ $doIPv6 -ne 0 ]; then
     # Try DHCP6 again on all interfaces
     log "Retrying DHCP6 for ${mgmt_nic}..."
     dhclient -6 -v -1 ${mgmt_nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1 
+    cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
     if [ "${sig_nic}" != "${mgmt_nic}" ]; then
 	log "Retrying DHCP6 for ${sig_nic}..."
 	dhclient -6 -v -1 ${sig_nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1 
+	cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
     fi
 
     # Debugging
@@ -480,6 +490,7 @@ lease6 {\n\
 		    cat /var/lib/dhcp/dhclient6.leases 2>&1 | sed -e "s#^#     ${LINENO} #"
 		    log "Retrying DHCP6 for ${nic} to pickup values from properties..."
 		    dhclient -6 -v -1 ${nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1 
+		    cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
 		fi
 	    fi
 	done
@@ -549,7 +560,7 @@ if [ "${mgmt_nic}" != "${sig_nic}" ]; then
     echo arping -c2 -A -I ${sig_nic} ${sig_ip4} 2>&1 | sed -e 's#^#   #'
     arping -c2 -A -I ${sig_nic} ${sig_ip4} 2>&1 | sed -e 's#^#   #'
 fi
-#new_dhcp6_name_servers
+
 if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
     log "INFO: Configuring signalling network namespace"
 
@@ -559,11 +570,20 @@ if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
     ip link set ${sig_nic} netns signalling 2>&1 | sed -e 's#^#   #'
     ip netns exec signalling ifconfig lo up 2>&1 | sed -e 's#^#   #'
     echo ip netns exec signalling ifconfig lo up 2>&1 | sed -e 's#^#   #'
-    ip netns exec signalling ifconfig ${sig_nic} $sig_ip up 2>&1 | sed -e 's#^#   #'
+    ip netns exec signalling ifconfig ${sig_nic} ${sig_ip4} up 2>&1 | sed -e 's#^#   #'
     echo ip netns exec signalling route add default gateway $new_routers dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
+    if [ ! -z "${sig_ip6}" ]; then
+	echo ip netns exec signalling ifconfig eth1 inet6 add ${sig_ip6}/${new_ip6_prefixlen} up 2>&1 | sed -e 's#^#   #'
+	ip netns exec signalling ifconfig eth1 inet6 add ${sig_ip6}/${new_ip6_prefixlen} up 2>&1 | sed -e 's#^#   #'
+    fi
+
     ip netns exec signalling route add default gateway $new_routers dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
     mkdir -p /etc/netns/signalling
-    printf "nameserver $new_domain_name_servers\n" > /etc/netns/signalling/resolv.conf
+    if [ "${sig_protocol^^}" == "IPV6" ]; then
+	printf "nameserver $new_dhcp6_name_servers\n" > /etc/netns/signalling/resolv.conf
+    else
+	printf "nameserver $new_domain_name_servers\n" > /etc/netns/signalling/resolv.conf
+    fi
     printf "Debug info (signalling netns routing table):\n" 2>&1 | sed -e 's#^#   #'
     echo ip netns exec signalling route 2>&1 | sed -e "s#^#     ${LINENO} #"
     ip netns exec signalling route 2>&1 | sed -e "s#^#     ${LINENO} #"

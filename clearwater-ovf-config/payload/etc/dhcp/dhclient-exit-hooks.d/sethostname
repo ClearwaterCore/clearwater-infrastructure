@@ -13,10 +13,10 @@ intf=${interface}-ipv4
 if [ ! -z "${new_ip6_address}" ]; then
     intf=${interface}-ipv6
 fi
-rm -f /tmp/dhcp.${intf}.env
+rm -vf /var/tmp/dhcp.${intf}.env
 
 if [[ "$reason" = "BOUND" || "$reason" = "REBOOT" || "$reason" = "TIMEOUT" ]]; then
-    export > /tmp/dhcp.${intf}.env
+    export > /var/tmp/dhcp.${intf}.env
 
     echo new_ip_address=$new_ip_address
     echo new_host_name=$new_host_name
@@ -40,7 +40,7 @@ if [[ "$reason" = "BOUND" || "$reason" = "REBOOT" || "$reason" = "TIMEOUT" ]]; t
     fi
 else
     if [[ "$reason" = "BOUND6" ]]; then
-	export > /tmp/dhcp.${intf}.env
+	export > /var/tmp/dhcp.${intf}.env
     fi
 fi
 
