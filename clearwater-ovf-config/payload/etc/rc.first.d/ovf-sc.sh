@@ -39,8 +39,11 @@
 
 set +e
 
-rm /var/log/ovf-sc.dhclient.log
-touch /var/log/ovf-sc.dhclient.log
+doIPv4=1
+doIPv6=0
+
+rm /var/log/ovf-sc.dhclient*.log
+touch /var/log/ovf-sc.dhclient-4.log /var/log/ovf-sc.dhclient-6.log
 
 # Send stdout/stderr to a log file
 exec >  >( stdbuf -i0 -o0 -e0 tee /var/log/ovf-sc.log )
@@ -110,6 +113,7 @@ if [ -s /tmp/ovf.xml ]; then
     cat /tmp/ovf.xml 2>&1 | sed -e "s#^#     ${LINENO} #"
 
     getprops_from_ovfxml /tmp/ovf.xml > /tmp/ovf.vars
+#    cp -vp /var/tmp/ovf.vars /tmp
 else
     rm -f /tmp/ovf.vars
     touch /tmp/ovf.vars
@@ -156,7 +160,7 @@ let "i=0"
 while [ $i -lt $(ip addr show|grep "eth[0-9]:"|wc -l) ]; do
     nic_mac=$(ip addr show dev eth$i|grep link/ether|awk '{print $2}')
     if [ -z "$mgmt_nic" ]; then
-	if [[ -z "${mgmt_mac_address}" || "$nic_mac" == "${mgmt_mac_address}" ]]; then
+	if [[ -z "${mgmt_mac_address}" || "${nic_mac^^}" == "${mgmt_mac_address^^}" ]]; then
 	    mgmt_nic=eth$i
 	fi
     fi
@@ -173,7 +177,7 @@ while [ $i -lt $(ip addr show|grep "eth[0-9]:"|wc -l) ]; do
     nic_mac=$(ip addr show dev eth$i|grep link/ether|awk '{print $2}')
     if [ "$mgmt_nic" != "eth$i" ]; then
 	if [ -z "$sig_nic" ]; then
-	    if [[ -z "${sig_mac_address}" || "$nic_mac" == "${sig_mac_address}" ]]; then
+	    if [[ -z "${sig_mac_address}" || "${nic_mac^^}" == "${sig_mac_address^^}" ]]; then
 		sig_nic=eth$i
 	    fi
 	fi
@@ -185,7 +189,7 @@ if [ -z "$sig_nic" ]; then
     if [ -z "${sig_mac_address}" ]; then
 	sig_nic=$mgmt_nic
     else
-	if [ "${sig_mac_address}" == "${mgmt_mac_address}" ]; then
+	if [ "${sig_mac_address^^}" == "${mgmt_mac_address^^}" ]; then
 	    sig_nic=$mgmt_nic
 	else
 	    err "ERROR: Couldn't determine signalling NIC!"
@@ -211,8 +215,10 @@ rm -vf /tmp/dhcp.${mgmt_nic}.env /tmp/dhcp.${sig_nic}.env 2>&1 | sed -e "s#^#   
 # Load up network interface variables
 declare -A mgmt
 declare -A sig
+declare -A mgmt6
+declare -A sig6
 
-# Load up network interface variables
+# Load up IPv4 network interface variables
 for k in fixed_address subnet_mask routers domain_name_servers ntp_servers domain_name domain_search host_name; do
     var=mgmt_${k}
     mgmt[${k}]=${!var}
@@ -220,79 +226,112 @@ for k in fixed_address subnet_mask routers domain_name_servers ntp_servers domai
     var=sig_${k}
     sig[${k}]=${!var}
 done
+mgmt[mac_address]=$(ip addr show dev ${mgmt_nic}|grep link/ether|awk '{print $2}')
+sig[mac_address]=$(ip addr show dev ${sig_nic}|grep link/ether|awk '{print $2}')
+
+# Load up IPv6 network interface variables
+for k in fixed_address prefix_len routers domain_name_servers ntp_servers domain_search; do
+    var=mgmt6_${k}
+    mgmt[${k}]=${!var}
+
+    var=sig6_${k}
+    sig[${k}]=${!var}
+done
+mgmt6[mac_address]=$(ip addr show dev ${mgmt_nic}|grep link/ether|awk '{print $2}')
+sig6[mac_address]=$(ip addr show dev ${sig_nic}|grep link/ether|awk '{print $2}')
 
 #Debugging
 printf "Debug info (NIC variables):\n" 2>&1 | sed -e 's#^#   #'
 declare -p mgmt 2>&1 | sed -e "s#^#     ${LINENO} #"
 declare -p sig 2>&1 | sed -e "s#^#     ${LINENO} #"
+declare -p mgmt6 2>&1 | sed -e "s#^#     ${LINENO} #"
+declare -p sig6 2>&1 | sed -e "s#^#     ${LINENO} #"
 
 # If environment contains a fixed address for a network interface, delete
 # its saved lease.
-if [ ! -z "$mgmt_fixed_address" ]; then
-    rm -f /var/lib/cc-ovf/${mgmt}.lease
+if [ ! -z "${mgmt[fixed_address]}" ]; then
+    rm -f /var/lib/cc-ovf/${mgmt_nic}-ipv4.lease
 fi
-if [ ! -z "$sig_fixed_address" ]; then
-    rm -f /var/lib/cc-ovf/${sig}.lease
+if [ ! -z "${mgmt6[fixed_address]}" ]; then
+    rm -f /var/lib/cc-ovf/${mgmt_nic}-ipv6.lease
+fi
+if [ ! -z "${sig[fixed_address]}" ]; then
+    rm -f /var/lib/cc-ovf/${sig_nic}-ipv4.lease
+fi
+if [ ! -z "${sig6[fixed_address]}" ]; then
+    rm -f /var/lib/cc-ovf/${sig_nic}-ipv6.lease
 fi
 
-# Force release of leases and install static fallback leases, if available
-dhclient -r >> /var/log/ovf-sc.dhclient.log 2>&1 
-rm -vf /var/lib/dhcp/*.leases 2>&1 | sed -e "s#^#   #"
-for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}.lease" -o -name "${sig_nic}.lease" \)); do
-    cat $lease >> /var/lib/dhcp/dhclient.leases
-done
-
-# Try DHCP again on all interfaces
-log "Retrying DHCP for ${mgmt_nic}..."
-dhclient -v ${mgmt_nic} >> /var/log/ovf-sc.dhclient.log 2>&1 
 declare -a nics
 nics=( ${mgmt_nic} )
 if [ "${sig_nic}" != "${mgmt_nic}" ]; then
-    log "Retrying DHCP for ${sig_nic}..."
-    dhclient -v ${sig_nic} >> /var/log/ovf-sc.dhclient.log 2>&1 
     nics=( ${mgmt_nic} ${sig_nic} )
 fi
 
-# Debugging
-printf "Debug info (current DHCP leases):\n" 2>&1 | sed -e 's#^#   #'
-cat /var/lib/dhcp/dhclient.leases 2>&1 | sed -e "s#^#     ${LINENO} #"
+if [ "${sig_protocol^^}" == "IPV6" ]; then
+    doIPv6=1
+fi
+if [ "${mgmt_protocol^^}" == "IPV6" ]; then
+    doIPv6=1
+fi
 
-# Capture leases as fallback lease for next boot
-for nic in ${nics[@]}; do
-    rm -vf /tmp/${nic}.lease 2>&1 | sed -e "s#^#   #"
-    sed -n "/interface \"${nic}\"/,/}/p" /var/lib/dhcp/dhclient.leases 2> /dev/null | sed -e 's#\(renew\|rebind\|expire\).*#\1 4 2037/12/31 00:00:00;#' > /tmp/${nic}.lease
-    if [ -s /tmp/${nic}.lease ]; then
-	lno=$(grep -n interface /tmp/${nic}.lease|tail -1|gawk -F: -e '{print $1}')
-	sed -n -ie "$lno,\$p" /tmp/${nic}.lease
-	echo "lease {" > /var/lib/cc-ovf/${nic}.lease
-	cat /tmp/${nic}.lease >> /var/lib/cc-ovf/${nic}.lease
+# IPv4 self configuration
+if [ $doIPv4 -ne 0 ]; then
+    # Force release of leases and install static fallback leases, if available
+    dhclient -4 -r >> /var/log/ovf-sc.dhclient-4.log 2>&1 
+    rm -vf /var/lib/dhcp/*.leases 2>&1 | sed -e "s#^#   #"
+    for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv4.lease" -o -name "${sig_nic}-ipv4.lease" \)); do
+	cat ${lease} >> /var/lib/dhcp/dhclient.leases
+    done
+
+    # Try DHCP again on all interfaces
+    log "Retrying DHCP for ${mgmt_nic}..."
+    dhclient -4 -v ${mgmt_nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
+    if [ "${sig_nic}" != "${mgmt_nic}" ]; then
+	log "Retrying DHCP for ${sig_nic}..."
+	dhclient -4 -v ${sig_nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
     fi
-done
 
-printf "Debug info (our saved leases):\n" 2>&1 | sed -e 's#^#   #'
-ls -la /var/lib/cc-ovf 2>&1 | sed -e "s#^#     ${LINENO} #"
-no_leases=$(find /var/lib/cc-ovf \( -name "${mgmt_nic}.lease" -o -name "${sig_nic}.lease" \)|wc -l)
-echo "no_leases=${no_leases}" 2>&1 | sed -e "s#^#     ${LINENO} #"
+    # Debugging
+    printf "Debug info (current DHCP leases):\n" 2>&1 | sed -e 's#^#   #'
+    cat /var/lib/dhcp/dhclient.leases 2>&1 | sed -e "s#^#     ${LINENO} #"
 
-if [ $no_leases -ne ${#nics[@]} ]; then
-    # We don't have a lease for all interfaces, so we'll build the missing
-    # ones from the environment variables and then give it another try.
+    # Capture leases as fallback lease for next boot
     for nic in ${nics[@]}; do
-	if [ ! -e /var/lib/cc-ovf/${nic}.lease ]; then
-	    log "INFO: Missing network configuration for ${nic}"
-	    if [ "${nic}" == "${mgmt_nic}" ]; then
-		eth_str=$(declare -p mgmt)
-	    else
-		eth_str=$(declare -p sig)
-	    fi
-	    eval "declare -A eth="${eth_str#*=}
+	rm -vf /tmp/${nic}-ipv4.lease 2>&1 | sed -e "s#^#   #"
+	sed -n "/interface \"${nic}\"/,/}/p" /var/lib/dhcp/dhclient.leases 2> /dev/null | sed -e 's#\(renew\|rebind\|expire\).*#\1 4 2037/12/31 00:00:00;#' > /tmp/${nic}-ipv4.lease
+	if [ -s /tmp/${nic}-ipv4.lease ]; then
+	    lno=$(grep -n interface /tmp/${nic}-ipv4.lease|tail -1|gawk -F: -e '{print $1}')
+	    sed -n -ie "$lno,\$p" /tmp/${nic}-ipv4.lease
+	    echo "lease {" > /var/lib/cc-ovf/${nic}-ipv4.lease
+	    cat /tmp/${nic}-ipv4.lease >> /var/lib/cc-ovf/${nic}-ipv4.lease
+	fi
+    done
 
-            #Debugging
-	    printf "Debug info (NIC ${nic}):\n" 2>&1 | sed -e 's#^#   #'
-	    declare -p eth 2>&1 | sed -e "s#^#     ${LINENO} #"
+    printf "Debug info (our saved leases):\n" 2>&1 | sed -e 's#^#   #'
+    ls -la /var/lib/cc-ovf 2>&1 | sed -e "s#^#     ${LINENO} #"
+    no_leases=$(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv4.lease" -o -name "${sig_nic}-ipv4.lease" \)|wc -l)
+    echo "no_leases=${no_leases}" 2>&1 | sed -e "s#^#     ${LINENO} #"
 
-	    if [ ! -z "${eth[fixed_address]}" ]; then
-		printf "\
+    if [ $no_leases -ne ${#nics[@]} ]; then
+        # We don't have a lease for all interfaces, so we'll build the missing
+        # ones from the environment variables and then give it another try.
+	for nic in ${nics[@]}; do
+	    if [ ! -e /var/lib/cc-ovf/${nic}-ipv4.lease ]; then
+		log "INFO: Missing network configuration for ${nic}"
+		if [ "${nic}" == "${mgmt_nic}" ]; then
+		    eth_str=$(declare -p mgmt)
+		else
+		    eth_str=$(declare -p sig)
+		fi
+		eval "declare -A eth="${eth_str#*=}
+
+                #Debugging
+		printf "Debug info (NIC ${nic}):\n" 2>&1 | sed -e 's#^#   #'
+		declare -p eth 2>&1 | sed -e "s#^#     ${LINENO} #"
+
+		if [ ! -z "${eth[fixed_address]}" ]; then
+		    printf "\
 lease {\n\
   interface \"${nic}\";\n\
   fixed-address ${eth[fixed_address]};\n\
@@ -307,22 +346,22 @@ lease {\n\
   rebind 4 2037/12/31 00:00:00;\n\
   expire 4 2037/12/31 00:00:00;\n\
 }\n\
-" > /var/lib/cc-ovf/${nic}.lease
-		rm -vf /var/lib/dhcp/dhclient.leases 2>&1 | sed -e "s#^#   #"
-		for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}.lease" -o -name "${sig_nic}.lease" \)); do
-		    cat $lease >> /var/lib/dhcp/dhclient.leases
-		done
-		log "Retrying DHCP for ${nic} to pickup values from properties..."
-		dhclient -v ${nic} >> /var/log/ovf-sc.dhclient.log 2>&1 
+" > /var/lib/cc-ovf/${nic}-ipv4.lease
+		    rm -vf /var/lib/dhcp/dhclient.leases 2>&1 | sed -e "s#^#   #"
+		    for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv4.lease" -o -name "${sig_nic}-ipv4.lease" \)); do
+			cat $lease >> /var/lib/dhcp/dhclient.leases
+		    done
+		    log "Retrying DHCP for ${nic} to pickup values from properties..."
+		    dhclient -4 -v ${nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
+		fi
 	    fi
-	fi
-    done
+	done
 
-    # If after manufacturing leases from the environment we're still missing some,
-    # call it quits, declare an error and wait for operator intervention.
-    if [ "$(find /var/lib/cc-ovf \( -name "${mgmt_nic}.lease" -o -name "${sig_nic}.lease" \)|wc -l)" -ne ${#nics[@]} ]; then
-	err "ERROR: Can't determine network configuration!"
-    fi
+        # If after manufacturing leases from the environment we're still missing some,
+        # call it quits, declare an error and wait for operator intervention.
+	if [ "$(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv4.lease" -o -name "${sig_nic}-ipv4.lease" \)|wc -l)" -ne ${#nics[@]} ]; then
+		    err "ERROR: Can't determine network configuration!"
+	fi
 
 #    set +x
 #    let "cmd_done=0"
@@ -350,6 +389,107 @@ lease {\n\
 #	    let "cmd_done=1"
 #	fi
 #    done
+    fi   
+fi
+
+# IPv6 self configuration
+if [ $doIPv6 -ne 0 ]; then
+    # Force release of leases and install static fallback leases, if available
+    log "Releasing DHCP6 leases..."
+    dhclient -6 -r -1 >> /var/log/ovf-sc.dhclient-6.log 2>&1 
+    rm -vf /var/lib/dhcp/*.leases 2>&1 | sed -e "s#^#   #"
+    for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv6.lease" -o -name "${sig_nic}-ipv6.lease" \)); do
+	cat ${lease} >> /var/lib/dhcp/dhclient6.leases
+    done
+    printf "Debug info (current DHCP6 leases):\n" 2>&1 | sed -e 's#^#   #'
+    cat /var/lib/dhcp/dhclient6.leases 2>&1 | sed -e "s#^#     ${LINENO} #"
+
+    # Try DHCP6 again on all interfaces
+    log "Retrying DHCP6 for ${mgmt_nic}..."
+    dhclient -6 -v -1 ${mgmt_nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1 
+    if [ "${sig_nic}" != "${mgmt_nic}" ]; then
+	log "Retrying DHCP6 for ${sig_nic}..."
+	dhclient -6 -v -1 ${sig_nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1 
+    fi
+
+    # Debugging
+    printf "Debug info (current DHCP6 leases):\n" 2>&1 | sed -e 's#^#   #'
+    cat /var/lib/dhcp/dhclient6.leases 2>&1 | sed -e "s#^#     ${LINENO} #"
+
+    # Capture leases as fallback lease for next boot
+    for nic in ${nics[@]}; do
+	rm -vf /tmp/${nic}-ipv6.lease 2>&1 | sed -e "s#^#   #"
+	sed -n "/interface \"${nic}\"/,/^}/p" /var/lib/dhcp/dhclient6.leases 2> /dev/null | sed -e "s/\(preferred-life\|max-life\)[[:space:]]*.*;$/\1 4294967295;/" > /tmp/${nic}-ipv6.lease
+	if [ -s /tmp/${nic}-ipv6.lease ]; then
+	    lno=$(grep -n interface /tmp/${nic}-ipv6.lease|tail -1|gawk -F: -e '{print $1}')
+	    sed -n -ie "$lno,\$p" /tmp/${nic}-ipv6.lease
+	    echo "lease6 {" > /var/lib/cc-ovf/${nic}-ipv6.lease
+	    cat /tmp/${nic}-ipv6.lease >> /var/lib/cc-ovf/${nic}-ipv6.lease
+	fi
+    done
+
+    printf "Debug info (our saved leases):\n" 2>&1 | sed -e 's#^#   #'
+    ls -la /var/lib/cc-ovf 2>&1 | sed -e "s#^#     ${LINENO} #"
+    no_leases=$(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv6.lease" -o -name "${sig_nic}-ipv6.lease" \)|wc -l)
+    echo "no_leases=${no_leases}" 2>&1 | sed -e "s#^#     ${LINENO} #"
+
+    if [ $no_leases -ne ${#nics[@]} ]; then
+        # We don't have a lease for all interfaces, so we'll build the missing
+        # ones from the environment variables and then give it another try.
+	for nic in ${nics[@]}; do
+	    if [ ! -e /var/lib/cc-ovf/${nic}-ipv6.lease ]; then
+		log "INFO: Missing network configuration for ${nic}"
+		if [ "${nic}" == "${mgmt_nic}" ]; then
+		    eth_str=$(declare -p mgmt6)
+		else
+		    eth_str=$(declare -p sig6)
+		fi
+		eval "declare -A eth="${eth_str#*=}
+
+            #Debugging
+		printf "Debug info (NIC ${nic}):\n" 2>&1 | sed -e 's#^#   #'
+		declare -p eth 2>&1 | sed -e "s#^#     ${LINENO} #"
+
+		if [ ! -z "${eth[fixed_address]}" ]; then
+		    declare -a mac
+		    mac=( $(echo ${eth[mac_address]} | sed -e 's#:# #g' ) )
+		    printf "\
+lease6 {\n\
+  interface \"${nic}\";\n\
+  ia-na ${mac[2]}:${mac[3]}:${mac[4]}:${mac[5]} {\n\
+    starts $(date +%s);\n\
+    renew 0;\n\
+    rebind 0;\n\
+    iaaddr ${eth[fixed_address]} {\n\
+      starts $(date +%s);\n\
+      preferred-life 4294967295;\n\
+      max-life 4294967295;\n\
+    }\n\
+  }\n\
+  option dhcp6.server-id 0:1:2:3:4:5:6:7:8:9:0:1:2:3;\n\
+  option dhcp6.client-id cc:cc:cc:1:0:${mac[1]}:${mac[2]}:${mac[3]}:${mac[4]}:${mac[5]};\n\
+  option dhcp6.name-servers ${eth[domain_name_servers]};\n\
+  option dhcp6.domain-search \"${eth[domain_search]}\";
+		option dhcp6.sntp-servers ${eth[ntp_servers]};\n\
+}\n\
+" > /var/lib/cc-ovf/${nic}-ipv6.lease
+		    rm -vf /var/lib/dhcp/dhclient6.leases 2>&1 | sed -e "s#^#   #"
+		    for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv6.lease" -o -name "${sig_nic}-ipv6.lease" \)); do
+			cat $lease >> /var/lib/dhcp/dhclient6.leases
+		    done
+		    cat /var/lib/dhcp/dhclient6.leases 2>&1 | sed -e "s#^#     ${LINENO} #"
+		    log "Retrying DHCP6 for ${nic} to pickup values from properties..."
+		    dhclient -6 -v -1 ${nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1 
+		fi
+	    fi
+	done
+
+        # If after manufacturing leases from the environment we're still missing some,
+        # call it quits, declare an error and wait for operator intervention.
+	if [ "$(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv6.lease" -o -name "${sig_nic}-ipv6.lease" \)|wc -l)" -ne ${#nics[@]} ]; then
+		    err "ERROR: Can't determine network configuration!"
+	fi
+    fi
 fi
 
 # Debugging
@@ -360,27 +500,57 @@ ls -lart /var/lib/dhcp/*.leases 2>&1 | sed -e "s#^#     ${LINENO} #"
 
 printf "Debug info (current ifconfig and route table):\n" 2>&1 | sed -e 's#^#   #'
 ifconfig 2>&1 | sed -e "s#^#     ${LINENO} #"
-route 2>&1 | sed -e "s#^#     ${LINENO} #"
+route -4 2>&1 | sed -e "s#^#     ${LINENO} #"
+route -6 2>&1 | sed -e "s#^#     ${LINENO} #"
 
 # Setup dual NICs (if present)
-mgmt_ip=$(ip addr show dev ${mgmt_nic} 2>/dev/null | sed -e's/^.*inet \([^ ]*\)\/.*$/\1/;t;d')
-signaling_ip=$(ip addr show dev ${sig_nic} 2>/dev/null | sed -e's/^.*inet \([^ ]*\)\/.*$/\1/;t;d')
-
-if [ -r /tmp/dhcp.${mgmt_nic}.env ]; then
-    . /tmp/dhcp.${mgmt_nic}.env
+mgmt_ip4=$( ip -4 addr show dev ${mgmt_nic}|grep global|sed -e 's#^.*inet* \([^/]*\)/.*$#\1#' )
+mgmt_ip6=$( ip -6 addr show dev ${mgmt_nic}|grep global|sed -e 's#^.*inet6* \([^/]*\)/.*$#\1#' )
+mgmt_ip=${mgmt_ip4}
+if [ "${mgmt_protocol^^}" == "IPV6" ]; then
+    mgmt_ip=${mgmt_ip6}
 fi
-if [ -r /tmp/dhcp.${sig_nic}.env ]; then
-    . /tmp/dhcp.${sig_nic}.env
+if [ ! -z "${mgmt_ip6}" ]; then
+    if [ -z "${mgmt_ip4}" ]; then
+	err "ERROR: Both IPv6 and IPv4 must be configured for management interface! Exiting..."
+    fi
 fi
 
-# Send gratuitous ARP
-echo arping -c2 -A -I ${mgmt_nic} ${mgmt_ip} 2>&1 | sed -e 's#^#   #'
-arping -c2 -A -I ${mgmt_nic} ${mgmt_ip} 2>&1 | sed -e 's#^#   #'
-if [[ "$signaling_ip" != "$mgmt_ip" && ! -z "$new_domain_name_servers" ]]; then
-    # Send gratuitous ARP 2>&1 | sed -e 's#^#   #'
-    echo arping -c2 -A -I ${sig_nic} ${signaling_ip} 2>&1 | sed -e 's#^#   #'
-    arping -c2 -A -I ${sig_nic} ${signaling_ip} 2>&1 | sed -e 's#^#   #'
+sig_ip4=$( ip -4 addr show dev ${sig_nic}|grep global|sed -e 's#^.*inet* \([^/]*\)/.*$#\1#' )
+sig_ip6=$( ip -6 addr show dev ${sig_nic}|grep global|sed -e 's#^.*inet6* \([^/]*\)/.*$#\1#' )
+sig_ip=${sig_ip4}
+if [ "${sig_protocol^^}" == "IPV6" ]; then
+    sig_ip=${sig_ip6}
+fi
+if [ ! -z "${sig_ip6}" ]; then
+    if [ -z "${sig_ip4}" ]; then
+	err "ERROR: Both IPv6 and IPv4 must be configured for signaling interface! Exiting..."
+    fi
+fi
 
+if [ -r /tmp/dhcp.${mgmt_nic}-ipv4.env ]; then
+    . /tmp/dhcp.${mgmt_nic}-ipv4.env
+fi
+if [ -r /tmp/dhcp.${sig_nic}-ipv4.env ]; then
+    . /tmp/dhcp.${sig_nic}-ipv4.env
+fi
+
+if [ -r /tmp/dhcp.${mgmt_nic}-ipv6.env ]; then
+    . /tmp/dhcp.${mgmt_nic}-ipv6.env
+fi
+if [ -r /tmp/dhcp.${sig_nic}-ipv6.env ]; then
+    . /tmp/dhcp.${sig_nic}-ipv6.env
+fi
+
+# Send gratuitous ARP(s) for IPv4
+echo arping -c2 -A -I ${mgmt_nic} ${mgmt_ip4} 2>&1 | sed -e 's#^#   #'
+arping -c2 -A -I ${mgmt_nic} ${mgmt_ip4} 2>&1 | sed -e 's#^#   #'
+if [ "${mgmt_nic}" != "${sig_nic}" ]; then
+    echo arping -c2 -A -I ${sig_nic} ${sig_ip4} 2>&1 | sed -e 's#^#   #'
+    arping -c2 -A -I ${sig_nic} ${sig_ip4} 2>&1 | sed -e 's#^#   #'
+fi
+#new_dhcp6_name_servers
+if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
     log "INFO: Configuring signalling network namespace"
 
     echo ip netns add signalling 2>&1 | sed -e 's#^#   #'
@@ -389,7 +559,7 @@ if [[ "$signaling_ip" != "$mgmt_ip" && ! -z "$new_domain_name_servers" ]]; then
     ip link set ${sig_nic} netns signalling 2>&1 | sed -e 's#^#   #'
     ip netns exec signalling ifconfig lo up 2>&1 | sed -e 's#^#   #'
     echo ip netns exec signalling ifconfig lo up 2>&1 | sed -e 's#^#   #'
-    ip netns exec signalling ifconfig ${sig_nic} $signaling_ip up 2>&1 | sed -e 's#^#   #'
+    ip netns exec signalling ifconfig ${sig_nic} $sig_ip up 2>&1 | sed -e 's#^#   #'
     echo ip netns exec signalling route add default gateway $new_routers dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
     ip netns exec signalling route add default gateway $new_routers dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
     mkdir -p /etc/netns/signalling
@@ -397,9 +567,11 @@ if [[ "$signaling_ip" != "$mgmt_ip" && ! -z "$new_domain_name_servers" ]]; then
     printf "Debug info (signalling netns routing table):\n" 2>&1 | sed -e 's#^#   #'
     echo ip netns exec signalling route 2>&1 | sed -e "s#^#     ${LINENO} #"
     ip netns exec signalling route 2>&1 | sed -e "s#^#     ${LINENO} #"
+    echo ip netns 2>&1 | sed -e 's#^#   #'
+    ip netns 2>&1 | sed -e 's#^#   #'
 
     (
-	. /tmp/dhcp.${mgmt_nic}.env
+	. /tmp/dhcp.${mgmt_nic}-ipv4.env
 	echo route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
 	route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
     )
@@ -410,15 +582,22 @@ route 2>&1 | sed -e "s#^#     ${LINENO} #"
 
 # Function for substituting our variables into config files
 declare -A vars
-vars[signaling_ip]=${signaling_ip}
-vars[signalling_ip]=${signaling_ip}
+vars[signaling_ip]=${sig_ip}
+vars[signalling_ip]=${sig_ip}
+if [ "${sig_protocol^^}" == "IPV6" ]; then
+    vars[signaling_ip_qual]="[${sig_ip}]"
+    vars[signalling_ip_qual]="[${sig_ip}]"
+else
+    vars[signaling_ip_qual]="${sig_ip}"
+    vars[signalling_ip_qual]="${sig_ip}"
+fi
 vars[mgmt_ip]=${mgmt_ip}
-vars[signaling_dns_server]=${new_domain_name_servers}
-vars[signalling_dns_server]=${new_domain_name_servers}
 vars[etcd_cluster]=${etcd_cluster}
 vars[node_idx]=${node_idx}
 vars[local_site_name]=${local_site_name}
 vars[remote_site_name]=${remote_site_name}
+vars[mgmt_protocol]=${mgmt_protocol}
+vars[sig_protocol]=${sig_protocol}
 
 subst_vars()
 {
@@ -445,6 +624,16 @@ if [ $? -ne 0 ]; then
  	)
     fi
 else
+    if [ -z $cfg_dir ]; then
+	mkdir -p /mnt/ovf.cfg
+        mount /dev/cdrom /mnt/ovf.cfg > /dev/null 2>&1
+	if [ $? -eq 0 ]; then
+	    if [ -d /mnt/ovf.cfg/payload ]; then
+		cfg_dir="cdrom:/payload"
+	    fi
+	    umount /dev/cdrom > /dev/null 2>&1
+	fi
+    fi
     cc_dirs=(/etc/chronos /etc/cassandra /etc/clearwater)
     if [ ! -z $cfg_dir ]; then
 	cfg_loc=( $(echo $cfg_dir|sed -e 's#:# #g'|sed -e 's#\r##g') )

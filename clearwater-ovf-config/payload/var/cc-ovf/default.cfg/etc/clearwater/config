@@ -1,2 +1,8 @@
-. /etc/clearwater/local_config
-. /etc/clearwater/shared_config
+# This IF is handy for testing these files when they're in other locations
+if [ ! -z $BASH_ARGV ]; then
+   mydir=$(cd $(dirname ${BASH_ARGV[0]});pwd)
+else
+   mydir=/etc/clearwater
+fi
+. ${mydir}/local_config
+. ${mydir}/shared_config
