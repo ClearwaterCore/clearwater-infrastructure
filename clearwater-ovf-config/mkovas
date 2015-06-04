@@ -198,7 +198,9 @@ VM_ip=192.168.165.195
 ccServiceUpdate=$(echo ${ccVersion}|sed -e 's#^[^-]*-\([^-]*\)-.*$#\1#')
 if [[ "${ccServiceUpdate}" =~ ^[0-9]+$ ]]; then
     ubu_base=ubu14-base-v7-${ccServiceUpdate}
-    VM_ip=192.168.165.196
+    if [ ${ccServiceUpdate} -eq 2 ]; then
+	VM_ip=192.168.165.196
+    fi
 else
     ubu_base=ubu14-base-v7-1
 fi

@@ -149,6 +149,18 @@ else
     log "Applying OVF customizations (per VMWare properties)..."
 fi
 
+#Setup protocol variables
+if [ -z "${sip_protocol}${mgmt_protocol}" ]; then
+    if [ ! -z "${ip_protocol}" ]; then
+	sig_protocol="IPv4"
+	mgmt_protocol="IPv4"
+	if [ "${ip_protocol^^}" == "IPV4/IPV6" ]; then
+	    sig_protocol="IPv6"
+	    mgmt_protocol="IPv6"
+	fi
+    fi
+fi
+
 #Debugging
 printf "Debug info (current ifconfig & route):\n" 2>&1 | sed -e 's#^#   #'
 ifconfig 2>&1 | sed -e "s#^#     ${LINENO} #"
@@ -272,10 +284,14 @@ fi
 if [ "${sig_protocol^^}" == "IPV6" ]; then
     doIPv6=1
     echo 1 > /proc/sys/net/ipv6/conf/${sig_nic}/accept_ra
+    echo cat /proc/sys/net/ipv6/conf/${sig_nic}/accept_ra 2>&1 | sed -e "s#^#   #"
+    cat /proc/sys/net/ipv6/conf/${sig_nic}/accept_ra 2>&1 | sed -e "s#^#   #"
 fi
 if [ "${mgmt_protocol^^}" == "IPV6" ]; then
     doIPv6=1
     echo 1 > /proc/sys/net/ipv6/conf/${mgmt_nic}/accept_ra
+    echo cat /proc/sys/net/ipv6/conf/${mgmt_nic}/accept_ra 2>&1 | sed -e "s#^#   #"
+    cat /proc/sys/net/ipv6/conf/${mgmt_nic}/accept_ra 2>&1 | sed -e "s#^#   #"
 fi
 
 # IPv4 self configuration
