@@ -1,0 +1,192 @@
+    <ProductSection>
+      <Info>Information about the installed software</Info>
+      <Category>CC Config</Category>
+      <Property ovf:key="etcd_cluster" ovf:type="string" ovf:userConfigurable="true">
+        <Label>etcd_cluster</Label>
+        <Description>If this node is joining a new cluster, set this to a subset the nodes already in the cluster. For fault tolerance reasons it is recommended at least two existing nodes are provided.
+
+If this node is a founding member, set this to the nodes that will form the initial cluster.</Description>
+      </Property>
+      <Property ovf:key="etcd_node_idx" ovf:type="string" ovf:userConfigurable="true">
+        <Label>node_idx</Label>
+        <Description>An index number used to distinguish this node from others of the same type in the cluster (for example, sprout-1 and sprout-2). Optional.</Description>
+      </Property>
+
+
+      <Category>Payload Config</Category>
+      <Property ovf:key="cfg_dir" ovf:type="string" ovf:userConfigurable="true">
+        <Label>cfg_dir</Label>
+        <Description>File payload to be delivered to the VM. The format of this field is &lt;device&gt;:&lt;root-directory&gt;. For example - cdrom:/payload. The contents of this directory tree will be copied to the root directory (i.e. /).</Description>
+      </Property>
+
+
+      <Category>IP Protocol</Category>
+      <Property ovf:key="mgmt_protocol" ovf:qualifiers="ValueMap{&quot;IPv4&quot;,&quot;IPv6&quot;}" ovf:type="string" ovf:userConfigurable="true" ovf:value="IPv4">
+        <Label>mgmt_protocol</Label>
+      </Property>
+      <Category>IP Protocol</Category>
+      <Property ovf:key="sig_protocol" ovf:qualifiers="ValueMap{&quot;IPv4&quot;,&quot;IPv6&quot;}" ovf:type="string" ovf:userConfigurable="true" ovf:value="IPv4">
+        <Label>sig_protocol</Label>
+      </Property>
+
+
+
+      <Category>Management IPv4 Config</Category>
+      <Property ovf:key="mgmt_mac_address" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt_mac_address</Label>
+        <Description>The MAC address of the management network interface. If left blank, the first network interface encountered will be the management network interface.</Description>
+      </Property>
+      <Category>Management IPv4 Config</Category>
+      <Property ovf:key="mgmt_fixed_address" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt_fixed_address</Label>
+        <Description>The fixed IP address to be assigned to the management interface.</Description>
+      </Property>
+      <Category>Management IPv4 Config</Category>
+      <Property ovf:key="mgmt_subnet_mask" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt_subnet_mask</Label>
+        <Description>The subnet-mask for the management intereface.</Description>
+      </Property>
+      <Category>Management IPv4 Config</Category>
+      <Property ovf:key="mgmt_routers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt_routers</Label>
+        <Description>The routers associated with the management interface.</Description>
+      </Property>
+      <Category>Management IPv4 Config</Category>
+      <Property ovf:key="mgmt_domain_name_servers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt_domain_name_servers</Label>
+        <Description>The domain-name-servers associated with the management interface.</Description>
+      </Property>
+      <Category>Management IPv4 Config</Category>
+      <Property ovf:key="mgmt_ntp_servers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt_ntp_servers</Label>
+        <Description>The ntp-servers associated with the management interface.</Description>
+      </Property>
+      <Category>Management IPv4 Config</Category>
+      <Property ovf:key="mgmt_domain_name" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt_domain_name</Label>
+        <Description>The domain-name associated with the management interface.</Description>
+      </Property>
+      <Category>Management IPv4 Config</Category>
+      <Property ovf:key="mgmt_domain_search" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt_domain_search</Label>
+        <Description>The domain-name-search parameter associated with the management interface.</Description>
+      </Property>
+      <Category>Management IPv4 Config</Category>
+      <Property ovf:key="mgmt_host_name" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt_host_name</Label>
+        <Description>The host-name associated with the management interface.</Description>
+      </Property>
+
+
+      <Category>Management IPv6 Config</Category>
+      <Property ovf:key="mgmt6_fixed_address" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt6_fixed_address</Label>
+        <Description>The fixed IP address to be assigned to the management interface.</Description>
+      </Property>
+      <Category>Management IPv6 Config</Category>
+      <Property ovf:key="mgmt6_domain_name_servers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt6_domain_name_servers</Label>
+        <Description>The domain-name-servers associated with the management interface.</Description>
+      </Property>
+      <Category>Management IPv6 Config</Category>
+      <Property ovf:key="mgmt6_ntp_servers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt6_ntp_servers</Label>
+        <Description>The ntp-servers associated with the management interface.</Description>
+      </Property>
+      <Category>Management IPv6 Config</Category>
+      <Property ovf:key="mgmt6_domain_search" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt6_domain_search</Label>
+        <Description>The domain-name-search parameter associated with the management interface.</Description>
+      </Property>
+      <Category>Management IPv6 Config</Category>
+      <Property ovf:key="mgmt6_prefix_len" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt6_prefix_len</Label>
+      </Property>
+
+
+
+      <Category>Signaling IPv4 Config</Category>
+      <Property ovf:key="sig_mac_address" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig_fixed_address</Label>
+        <Description>The MAC address of the signaling network interface. If left blank and there are two network interface provisioned, the second network interface encountered will be the signaling network interface.</Description>
+      </Property>
+      <Category>Signaling IPv4 Config</Category>
+      <Property ovf:key="sig_fixed_address" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig_fixed_address</Label>
+        <Description>The fixed IP address to be assigned to the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv4 Config</Category>
+      <Property ovf:key="sig_subnet_mask" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig_subnet_mask</Label>
+        <Description>The subnet-mask for the signaling intereface.</Description>
+      </Property>
+      <Category>Signaling IPv4 Config</Category>
+      <Property ovf:key="sig_routers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig_routers</Label>
+        <Description>The routers associated with the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv4 Config</Category>
+      <Property ovf:key="sig_domain_name_servers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig_domain_name_servers</Label>
+        <Description>The domain-name-servers associated with the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv4 Config</Category>
+      <Property ovf:key="sig_ntp_servers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig_ntp_servers</Label>
+        <Description>The ntp-servers associated with the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv4 Config</Category>
+      <Property ovf:key="sig_domain_name" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig_domain_name</Label>
+        <Description>The domain-name associated with the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv4 Config</Category>
+      <Property ovf:key="sig_domain_search" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig_domain_search</Label>
+        <Description>The domain-name-search parameter associated with the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv4 Config</Category>
+      <Property ovf:key="sig_host_name" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig_host_name</Label>
+        <Description>The host-name associated with the signaling interface.</Description>
+      </Property>
+
+
+      <Category>Signaling IPv6 Config</Category>
+      <Property ovf:key="sig6_fixed_address" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig6_fixed_address</Label>
+        <Description>The fixed IP address to be assigned to the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv6 Config</Category>
+      <Property ovf:key="sig6_domain_name_servers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig6_domain_name_servers</Label>
+        <Description>The domain-name-servers associated with the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv6 Config</Category>
+      <Property ovf:key="sig6_ntp_servers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig6_ntp_servers</Label>
+        <Description>The ntp-servers associated with the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv6 Config</Category>
+      <Property ovf:key="sig6_domain_search" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig6_domain_search</Label>
+        <Description>The domain-name-search parameter associated with the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv6 Config</Category>
+      <Property ovf:key="sig6_prefix_len" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig6_prefix_len</Label>
+      </Property>
+
+
+
+      <Category>GR Config</Category>
+      <Property ovf:key="local_site_name" ovf:type="string" ovf:userConfigurable="true">
+        <Label>local_site_name</Label>
+        <Description>This GR site's local name (e.g. site1).</Description>
+      </Property>
+      <Category>GR Config</Category>
+      <Property ovf:key="remote_site_name" ovf:type="string" ovf:userConfigurable="true">
+        <Label>remote_site_name</Label>
+        <Description>Other GR site's name (e.g. site2).</Description>
+      </Property>
+    </ProductSection>
