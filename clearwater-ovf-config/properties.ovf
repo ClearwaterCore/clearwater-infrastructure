@@ -7,7 +7,7 @@
 
 If this node is a founding member, set this to the nodes that will form the initial cluster.</Description>
       </Property>
-      <Property ovf:key="etcd_node_idx" ovf:type="string" ovf:userConfigurable="true">
+      <Property ovf:key="node_idx" ovf:type="string" ovf:userConfigurable="true">
         <Label>node_idx</Label>
         <Description>An index number used to distinguish this node from others of the same type in the cluster (for example, sprout-1 and sprout-2). Optional.</Description>
       </Property>
@@ -20,17 +20,23 @@ If this node is a founding member, set this to the nodes that will form the init
       </Property>
 
 
-      <Category>IP Protocol</Category>
-      <Property ovf:key="ip_protocol" ovf:qualifiers="ValueMap{&quot;IPv4&quot;,&quot;IPv4/IPv6&quot;}" ovf:type="string" ovf:userConfigurable="true" ovf:value="IPv4">
+      <Category>Network Configuration</Category>
+      <Property ovf:key="ip_protocol" ovf:qualifiers="ValueMap{&quot;IPv4&quot;,&quot;IPv6/IPv4&quot;,&quot;IPv4/IPv6&quot;}" ovf:type="string" ovf:userConfigurable="true" ovf:value="IPv4">
         <Label>ip_protocol</Label>
+	<Description>Seclect the IP protocol for Clearwater communications. Choose IPv4 for single stack communications. Choose IPv6/IPv4 for dual stack with Clearwater binding to and predominately using IPv6. Choose IPv4/IPv6 for dual stack with Clearwater binding to and predominately using IPv4.</Description>
       </Property>
-
-
-      <Category>Management IPv4 Config</Category>
+      <Category>Network Configuration</Category>
       <Property ovf:key="mgmt_mac_address" ovf:type="string" ovf:userConfigurable="true">
         <Label>mgmt_mac_address</Label>
         <Description>The MAC address of the management network interface. If left blank, the first network interface encountered will be the management network interface.</Description>
       </Property>
+      <Category>Network Configuration</Category>
+      <Property ovf:key="sig_mac_address" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig_fixed_address</Label>
+        <Description>The MAC address of the signaling network interface. If left blank and there are two network interface provisioned, the second network interface encountered will be the signaling network interface.</Description>
+      </Property>
+
+
       <Category>Management IPv4 Config</Category>
       <Property ovf:key="mgmt_fixed_address" ovf:type="string" ovf:userConfigurable="true">
         <Label>mgmt_fixed_address</Label>
@@ -100,11 +106,6 @@ If this node is a founding member, set this to the nodes that will form the init
 
 
 
-      <Category>Signaling IPv4 Config</Category>
-      <Property ovf:key="sig_mac_address" ovf:type="string" ovf:userConfigurable="true">
-        <Label>sig_fixed_address</Label>
-        <Description>The MAC address of the signaling network interface. If left blank and there are two network interface provisioned, the second network interface encountered will be the signaling network interface.</Description>
-      </Property>
       <Category>Signaling IPv4 Config</Category>
       <Property ovf:key="sig_fixed_address" ovf:type="string" ovf:userConfigurable="true">
         <Label>sig_fixed_address</Label>
