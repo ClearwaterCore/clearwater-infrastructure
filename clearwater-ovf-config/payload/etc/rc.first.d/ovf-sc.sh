@@ -92,9 +92,9 @@ err() {
 if [ ! -x /usr/bin/vmware-rpctool ]; then
     err "ERROR: VMware Tools are not installed. Exiting ..."
 fi
-rm -f /tmp/ovf.xml
-rpctool_stderr=$(/usr/bin/vmware-rpctool 'info-get guestinfo.ovfEnv' >/tmp/ovf.xml 2> /tmp/$$; cat /tmp/$$; rm -f /tmp/$$)
-if [ ! -s /tmp/ovf.xml ]; then
+rm -f /var/lib/cc-ovf/ovf.xml
+rpctool_stderr=$(/usr/bin/vmware-rpctool 'info-get guestinfo.ovfEnv' >/var/lib/cc-ovf/ovf.xml 2> /var/lib/cc-ovf/$$; cat /var/lib/cc-ovf/$$; rm -f /var/lib/cc-ovf/$$)
+if [ ! -s /var/lib/cc-ovf/ovf.xml ]; then
     if [ "$rpctool_stderr" == "Failed sending message to VMware." ]; then
         log "INFO: Not running on VMWare"
     else
@@ -107,21 +107,21 @@ if [ ! -s /tmp/ovf.xml ]; then
 fi
 
 # Convert OVF properties to bash variables
-if [ -s /tmp/ovf.xml ]; then
+if [ -s /var/lib/cc-ovf/ovf.xml ]; then
     #Debugging
     printf "Debug info (ovf.xml):\n" 2>&1 | sed -e 's#^#   #'
-    cat /tmp/ovf.xml 2>&1 | sed -e "s#^#     ${LINENO} #"
+    cat /var/lib/cc-ovf/ovf.xml 2>&1 | sed -e "s#^#     ${LINENO} #"
 
-    getprops_from_ovfxml /tmp/ovf.xml > /tmp/ovf.vars
-#    cp -vp /var/tmp/ovf.vars /tmp
+    getprops_from_ovfxml /var/lib/cc-ovf/ovf.xml > /var/lib/cc-ovf/ovf.vars
+#    cp -vp /var/lib/cc-ovf/ovf.vars /var/lib/cc-ovf
 else
-    rm -f /tmp/ovf.vars
-    touch /tmp/ovf.vars
+    rm -f /var/lib/cc-ovf/ovf.vars
+    touch /var/lib/cc-ovf/ovf.vars
 fi
 
 # Load environment variables from guestinfo or from '/ovf.env' on CD
 haveENV=false
-if [ ! -s /tmp/ovf.vars ]; then
+if [ ! -s /var/lib/cc-ovf/ovf.vars ]; then
     log "INFO: No environment presented by the platform. Look for it on the CD..."
     mkdir -p /mnt/ovf.cfg
     mount /dev/cdrom /mnt/ovf.cfg 2>&1 | sed -e 's#^#   #'
@@ -142,27 +142,42 @@ if [ ! -s /tmp/ovf.vars ]; then
 	fi
     fi
 else
+    vars_md5=$(md5sum -b /var/lib/cc-ovf/ovf.vars|awk '{print $1}')
+    if [ -e /var/lib/cc-ovf/vars.md5 ]; then
+	if [ "$(cat /var/lib/cc-ovf/vars.md5)" != "$vars_md5" ]; then
+	    err "ERROR: changes to VMware properties not allowed! Exiting..."
+	fi
+    fi
+    printf "$vars_md5\n" > /var/lib/cc-ovf/vars.md5
+
     printf "OVF environment (per VMware properties):\n" 2>&1 | sed -e 's#^#   #'
-    cat /tmp/ovf.vars 2>&1 | sed -e 's#^#     #'
-    . /tmp/ovf.vars
+    cat /var/lib/cc-ovf/ovf.vars 2>&1 | sed -e 's#^#     #'
+    . /var/lib/cc-ovf/ovf.vars
     haveENV=true
     log "Applying OVF customizations (per VMWare properties)..."
 fi
 
 #Setup protocol variables
 if [ -z "${sip_protocol}${mgmt_protocol}" ]; then
+    printf "ip_protocol=${ip_protocol}\n" 2>&1 | sed -e "s#^#     ${LINENO} #"
     if [ ! -z "${ip_protocol}" ]; then
 	sig_protocol="IPv4"
 	mgmt_protocol="IPv4"
-	if [ "${ip_protocol^^}" == "IPV4/IPV6" ]; then
+	if [ "${ip_protocol^^}" == "IPV6/IPV4" ]; then
 	    sig_protocol="IPv6"
 	    mgmt_protocol="IPv6"
+	    doIPv6=1
+	else
+	    if [ "${ip_protocol^^}" == "IPV4/IPV6" ]; then
+		doIPv6=1
+	    fi
 	fi
     fi
 fi
 
 #Debugging
 printf "Debug info (current ifconfig & route):\n" 2>&1 | sed -e 's#^#   #'
+printf "sig_protocol=${sig_protocol}, doIPv6=${doIPv6}\n" 2>&1 | sed -e "s#^#     ${LINENO} #"
 ifconfig 2>&1 | sed -e "s#^#     ${LINENO} #"
 route 2>&1 | sed -e "s#^#     ${LINENO} #"
 ls -lart /var/lib/dhcp 2>&1 | sed -e "s#^#     ${LINENO} #"
@@ -213,8 +228,7 @@ fi
 log "mgmt_nic=$mgmt_nic, sig_nic=$sig_nic"
 
 # Get rid of files from the last time
-rm -vf /var/tmp/dhcp.${mgmt_nic}-*.env /var/tmp/dhcp.${sig_nic}-*.env 2>&1 | sed -e "s#^#   #"
-rm -vf /tmp/dhcp.${mgmt_nic}-*.env /tmp/dhcp.${sig_nic}-*.env 2>&1 | sed -e "s#^#   #"
+rm -vf /var/lib/cc-ovf/dhcp.${mgmt_nic}-*.env /var/lib/cc-ovf/dhcp.${sig_nic}-*.env 2>&1 | sed -e "s#^#   #"
 
 # Configure the network interface(s) based on the following priority:
 #
@@ -245,10 +259,10 @@ sig[mac_address]=$(ip addr show dev ${sig_nic}|grep link/ether|awk '{print $2}')
 # Load up IPv6 network interface variables
 for k in fixed_address prefix_len routers domain_name_servers ntp_servers domain_search; do
     var=mgmt6_${k}
-    mgmt[${k}]=${!var}
+    mgmt6[${k}]=${!var}
 
     var=sig6_${k}
-    sig[${k}]=${!var}
+    sig6[${k}]=${!var}
 done
 mgmt6[mac_address]=$(ip addr show dev ${mgmt_nic}|grep link/ether|awk '{print $2}')
 sig6[mac_address]=$(ip addr show dev ${sig_nic}|grep link/ether|awk '{print $2}')
@@ -281,37 +295,42 @@ if [ "${sig_nic}" != "${mgmt_nic}" ]; then
     nics=( ${mgmt_nic} ${sig_nic} )
 fi
 
+echo 1 > /proc/sys/net/ipv6/conf/${sig_nic}/accept_ra
+echo cat /proc/sys/net/ipv6/conf/${sig_nic}/accept_ra 2>&1 | sed -e "s#^#   #"
+cat /proc/sys/net/ipv6/conf/${sig_nic}/accept_ra 2>&1 | sed -e "s#^#   #"
 if [ "${sig_protocol^^}" == "IPV6" ]; then
     doIPv6=1
-    echo 1 > /proc/sys/net/ipv6/conf/${sig_nic}/accept_ra
-    echo cat /proc/sys/net/ipv6/conf/${sig_nic}/accept_ra 2>&1 | sed -e "s#^#   #"
-    cat /proc/sys/net/ipv6/conf/${sig_nic}/accept_ra 2>&1 | sed -e "s#^#   #"
 fi
+
+echo 1 > /proc/sys/net/ipv6/conf/${mgmt_nic}/accept_ra
+echo cat /proc/sys/net/ipv6/conf/${mgmt_nic}/accept_ra 2>&1 | sed -e "s#^#   #"
+cat /proc/sys/net/ipv6/conf/${mgmt_nic}/accept_ra 2>&1 | sed -e "s#^#   #"
 if [ "${mgmt_protocol^^}" == "IPV6" ]; then
     doIPv6=1
-    echo 1 > /proc/sys/net/ipv6/conf/${mgmt_nic}/accept_ra
-    echo cat /proc/sys/net/ipv6/conf/${mgmt_nic}/accept_ra 2>&1 | sed -e "s#^#   #"
-    cat /proc/sys/net/ipv6/conf/${mgmt_nic}/accept_ra 2>&1 | sed -e "s#^#   #"
 fi
+
+echo killall dhclient 2>&1 | sed -e "s#^#     ${LINENO} #"
+killall dhclient 2>&1 | sed -e "s#^#     ${LINENO} #"
+echo rm -vf /var/run/dhclient*.pid 2>&1 | sed -e "s#^#     ${LINENO} #"
+rm -vf /var/run/dhclient*.pid 2>&1 | sed -e "s#^#     ${LINENO} #"
+echo service networking restart 2>&1 | sed -e "s#^#     ${LINENO} #"
+service networking restart 2>&1 | sed -e "s#^#     ${LINENO} #"
 
 # IPv4 self configuration
 if [ $doIPv4 -ne 0 ]; then
     # Force release of leases and install static fallback leases, if available
     dhclient -4 -r >> /var/log/ovf-sc.dhclient-4.log 2>&1 
-    cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
-    rm -vf /var/lib/dhcp/*.leases 2>&1 | sed -e "s#^#   #"
+    rm -vf /var/lib/dhcp/dhclient.*leases 2>&1 | sed -e "s#^#   #"
     for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv4.lease" -o -name "${sig_nic}-ipv4.lease" \)); do
 	cat ${lease} >> /var/lib/dhcp/dhclient.leases
     done
 
     # Try DHCP again on all interfaces
     log "Retrying DHCP for ${mgmt_nic}..."
-    dhclient -4 -v ${mgmt_nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
-    cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
+    dhclient -1 -v ${mgmt_nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
     if [ "${sig_nic}" != "${mgmt_nic}" ]; then
 	log "Retrying DHCP for ${sig_nic}..."
-	dhclient -4 -v ${sig_nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
-	cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
+	dhclient -1 -v ${sig_nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
     fi
 
     # Debugging
@@ -320,7 +339,7 @@ if [ $doIPv4 -ne 0 ]; then
 
     # Capture leases as fallback lease for next boot
     for nic in ${nics[@]}; do
-	rm -vf /tmp/${nic}-ipv4.lease 2>&1 | sed -e "s#^#   #"
+	rm -vf /var/lib/cc-ovf/${nic}-ipv4.lease 2>&1 | sed -e "s#^#   #"
 	sed -n "/interface \"${nic}\"/,/}/p" /var/lib/dhcp/dhclient.leases 2> /dev/null | sed -e 's#\(renew\|rebind\|expire\).*#\1 4 2037/12/31 00:00:00;#' > /tmp/${nic}-ipv4.lease
 	if [ -s /tmp/${nic}-ipv4.lease ]; then
 	    lno=$(grep -n interface /tmp/${nic}-ipv4.lease|tail -1|gawk -F: -e '{print $1}')
@@ -374,8 +393,7 @@ lease {\n\
 			cat $lease >> /var/lib/dhcp/dhclient.leases
 		    done
 		    log "Retrying DHCP for ${nic} to pickup values from properties..."
-		    dhclient -4 -v ${nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
-		    cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
+		    dhclient -1 -v ${nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
 		fi
 	    fi
 	done
@@ -419,9 +437,9 @@ fi
 if [ $doIPv6 -ne 0 ]; then
     # Force release of leases and install static fallback leases, if available
     log "Releasing DHCP6 leases..."
+    killall dhclient > /dev/null 2>&1
     dhclient -6 -r -1 >> /var/log/ovf-sc.dhclient-6.log 2>&1 
-    cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
-    rm -vf /var/lib/dhcp/*.leases 2>&1 | sed -e "s#^#   #"
+    rm -vf /var/lib/dhcp/dhclient6.*leases 2>&1 | sed -e "s#^#   #"
     for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv6.lease" -o -name "${sig_nic}-ipv6.lease" \)); do
 	cat ${lease} >> /var/lib/dhcp/dhclient6.leases
     done
@@ -430,12 +448,12 @@ if [ $doIPv6 -ne 0 ]; then
 
     # Try DHCP6 again on all interfaces
     log "Retrying DHCP6 for ${mgmt_nic}..."
+    killall dhclient > /dev/null 2>&1
     dhclient -6 -v -1 ${mgmt_nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1 
-    cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
     if [ "${sig_nic}" != "${mgmt_nic}" ]; then
 	log "Retrying DHCP6 for ${sig_nic}..."
+	killall dhclient > /dev/null 2>&1
 	dhclient -6 -v -1 ${sig_nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1 
-	cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
     fi
 
     # Debugging
@@ -444,7 +462,7 @@ if [ $doIPv6 -ne 0 ]; then
 
     # Capture leases as fallback lease for next boot
     for nic in ${nics[@]}; do
-	rm -vf /tmp/${nic}-ipv6.lease 2>&1 | sed -e "s#^#   #"
+	rm -vf /var/lib/cc-ovf/${nic}-ipv6.lease 2>&1 | sed -e "s#^#   #"
 	sed -n "/interface \"${nic}\"/,/^}/p" /var/lib/dhcp/dhclient6.leases 2> /dev/null | sed -e "s/\(preferred-life\|max-life\)[[:space:]]*.*;$/\1 4294967295;/" > /tmp/${nic}-ipv6.lease
 	if [ -s /tmp/${nic}-ipv6.lease ]; then
 	    lno=$(grep -n interface /tmp/${nic}-ipv6.lease|tail -1|gawk -F: -e '{print $1}')
@@ -505,8 +523,8 @@ lease6 {\n\
 		    done
 		    cat /var/lib/dhcp/dhclient6.leases 2>&1 | sed -e "s#^#     ${LINENO} #"
 		    log "Retrying DHCP6 for ${nic} to pickup values from properties..."
+		    killall dhclient > /dev/null 2>&1
 		    dhclient -6 -v -1 ${nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1 
-		    cp -vp /var/tmp/dhcp.*.env /tmp 2>&1 | sed -e "s#^#   #"
 		fi
 	    fi
 	done
@@ -521,7 +539,7 @@ fi
 
 # Debugging
 printf "Debug info (current listing of leases):\n" 2>&1 | sed -e 's#^#   #'
-ls -lart /tmp/*.lease 2>&1 | sed -e "s#^#     ${LINENO} #"
+ls -lart /var/lib/cc-ovf/*.lease 2>&1 | sed -e "s#^#     ${LINENO} #"
 ls -lart /var/lib/cc-ovf/eth*.lease 2>&1 | sed -e "s#^#     ${LINENO} #"
 ls -lart /var/lib/dhcp/*.leases 2>&1 | sed -e "s#^#     ${LINENO} #"
 
@@ -555,18 +573,18 @@ if [ ! -z "${sig_ip6}" ]; then
     fi
 fi
 
-if [ -r /tmp/dhcp.${mgmt_nic}-ipv4.env ]; then
-    . /tmp/dhcp.${mgmt_nic}-ipv4.env
+if [ -r /var/lib/cc-ovf/dhcp.${mgmt_nic}-ipv4.env ]; then
+    . /var/lib/cc-ovf/dhcp.${mgmt_nic}-ipv4.env
 fi
-if [ -r /tmp/dhcp.${sig_nic}-ipv4.env ]; then
-    . /tmp/dhcp.${sig_nic}-ipv4.env
+if [ -r /var/lib/cc-ovf/dhcp.${sig_nic}-ipv4.env ]; then
+    . /var/lib/cc-ovf/dhcp.${sig_nic}-ipv4.env
 fi
 
-if [ -r /tmp/dhcp.${mgmt_nic}-ipv6.env ]; then
-    . /tmp/dhcp.${mgmt_nic}-ipv6.env
+if [ -r /var/lib/cc-ovf/dhcp.${mgmt_nic}-ipv6.env ]; then
+    . /var/lib/cc-ovf/dhcp.${mgmt_nic}-ipv6.env
 fi
-if [ -r /tmp/dhcp.${sig_nic}-ipv6.env ]; then
-    . /tmp/dhcp.${sig_nic}-ipv6.env
+if [ -r /var/lib/cc-ovf/dhcp.${sig_nic}-ipv6.env ]; then
+    . /var/lib/cc-ovf/dhcp.${sig_nic}-ipv6.env
 fi
 
 # Send gratuitous ARP(s) for IPv4
@@ -607,7 +625,7 @@ if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
     ip netns 2>&1 | sed -e 's#^#   #'
 
     (
-	. /tmp/dhcp.${mgmt_nic}-ipv4.env
+	. /var/lib/cc-ovf/dhcp.${mgmt_nic}-ipv4.env
 	echo route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
 	route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
     )
@@ -616,11 +634,21 @@ fi
 echo route 2>&1 | sed -e "s#^#     ${LINENO} #"
 route 2>&1 | sed -e "s#^#     ${LINENO} #"
 
+echo killall dhclient 2>&1 | sed -e "s#^#     ${LINENO} #"
+killall dhclient 2>&1 | sed -e "s#^#     ${LINENO} #"
+echo rm -vf /var/run/dhclient*.pid 2>&1 | sed -e "s#^#     ${LINENO} #"
+rm -vf /var/run/dhclient*.pid 2>&1 | sed -e "s#^#     ${LINENO} #"
+echo service networking restart 2>&1 | sed -e "s#^#     ${LINENO} #"
+service networking restart 2>&1 | sed -e "s#^#     ${LINENO} #"
+
+echo dig google.com 2>&1 | sed -e "s#^#     ${LINENO} #"
+dig google.com >&1 | sed -e "s#^#     ${LINENO} #"
+
 # Function for substituting our variables into config files
 declare -A vars
 vars[signaling_ip]=${sig_ip}
 vars[signalling_ip]=${sig_ip}
-if [ "${sig_protocol^^}" == "IPV6" ]; then
+if [ "${ip_protocol^^}" == "IPV6/IPV4" ]; then
     vars[signaling_ip_qual]="[${sig_ip}]"
     vars[signalling_ip_qual]="[${sig_ip}]"
 else
@@ -699,16 +727,16 @@ else
             fi
             cfg_dir="/mnt/ovf.cfg/${cfg_loc}"
 	else
-            rm -rf /var/tmp/ovf.cfg
-            mkdir -p /var/tmp/ovf.cfg
-            tar zvxf /mnt/ovf.cfg/${cfg_loc} -C /var/tmp/ovf.cfg > /dev/null 2>&1
+            rm -rf /var/lib/cc-ovf/ovf.cfg
+            mkdir -p /var/lib/cc-ovf/ovf.cfg
+            tar zvxf /mnt/ovf.cfg/${cfg_loc} -C /var/lib/cc-ovf/ovf.cfg > /dev/null 2>&1
             if [ $? != 0 ]; then
 		if [ ! -z "$cfg_dev" ]; then
                     umount ${cfg_dev} 2>&1 | sed -e 's#^#   #'
 		fi
 		err "ERROR: Invalid tarball - ${cfg_loc}. Exiting ..."
             fi
-            cfg_dir=/var/tmp/ovf.cfg
+            cfg_dir=/var/lib/cc-ovf/ovf.cfg
 	fi
 
 	cfg_newest=$(find ${cfg_dir} -type f -print0|xargs -0 ls -lrt --time-style=+%s|tail -1|awk '{print $6}')

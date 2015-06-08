@@ -1,16 +1,7 @@
 #!/bin/bash
 
-dpkg-query -W 2>&1 |grep clearwater
-if [ $? -eq 0 ]; then
-    clearwater-remove
-fi
 
-rm -rf /etc/clearwater /etc/chronos
+cp -rvp $(dirname $0)/../default.cfg/* /
 
-(
-    cd $(dirname $0)/../default.cfg
-    cp -rvp . /
-)
+rm -vf /var/lib/cc-ovf/* /var/log/ovf-sc.*log /var/lib/dhcp/*
 
-printf "" > /etc/hostname
-history -c && history -w
