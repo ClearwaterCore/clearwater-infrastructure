@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# Send stdout/stderr to a log file
+exec >  >( stdbuf -i0 -o0 -e0 tee -a /var/log/auto-upload.log )
+exec 2>&1
+
+printf "$0 - START - $(date)\n"
+
+. /etc/clearwater/config
+
+printf "Environment:\n"
+set|sort 2>&1 | sed -e 's#^#  #'
+
+if [ -r /var/lib/cc-ovf/auto-upload.run ]; then
+    ls -la /var/lib/cc-ovf/auto-upload.run
+
+    # Are we in an etcd cluster?
+    if [ ! -z "$etcd_cluster" ]; then
+        # Is etcd installed?
+	dpkg-query -W 2>&1 |grep -q clearwater-etcd
+	if [ $? -eq 0 ]; then
+	    printf "clearwater-etcd is installed!\n"
+	    etcd_nodes=( $(echo ${etcd_cluster}|sed -e 's#,# #g') )
+	    found=0
+	    for etcd_node in ${etcd_nodes[@]}; do
+		if [ "${management_local_ip:-$local_ip}" == "${etcd_node}" ]; then
+		    found=1
+		    break
+		fi
+	    done
+
+	    # Are we a forming member of this cluster?
+	    if [ $found -ne 0 ]; then
+		printf "We are a founding member of the cluster!\n"
+	        # Wait for etcd to be ready
+		/usr/share/clearwater/bin/poll-tcp 4000 ${management_local_ip:-$local_ip} > /dev/null 2>&1
+		while [ $? -ne 0 ]; do
+		    sleep 1
+		    /usr/share/clearwater/bin/poll-tcp 4000 ${management_local_ip:-$local_ip} > /dev/null 2>&1
+		done
+
+		printf "clearwater-etcd is up @ $(date)\n"
+		clearwater-status
+
+	        # Etcd is up, so run all availabe upload scripts
+		for upload_script in $(find /usr/share/clearwater/clearwater-config-manager/scripts -name 'upload_*' \! -name 'upload_json'); do
+		    printf "Running ${upload_script}:\n"
+		    ${upload_script} 2>&1 | sed -e 's##\n#g' | sed -e 's#^#  #'
+		done
+	    fi
+	fi
+    fi
+    rm -vf /var/lib/cc-ovf/auto-upload.run
+fi
+printf "$0 - END - $(date)\n"
