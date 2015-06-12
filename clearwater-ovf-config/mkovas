@@ -440,6 +440,11 @@ for node_type in "${node_types[@]}"; do
 	    fi
 	done
 	if [ "$cwrm" == "ls" ]; then
+	    printf "Making reversion package:\n"
+	    (
+		(sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} tar cvzf /var/tmp/ovf.clearwater.tgz /etc/clearwater/ /etc/cassandra/ /etc/chronos/;sta=$?;echo $sta > /tmp/sta) 2>&1 | tee /tmp/${type}.out
+	    ) 2>&1|sed -e 's#^#   #'
+
 	    let done=1
 
 	    printf "What's installed per clearwater-version:\n"

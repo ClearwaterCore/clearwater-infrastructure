@@ -8,10 +8,10 @@ auto lo
 # The management network interface
 auto eth0
   iface eth0 inet dhcp
-  iface eth0 inet6 dhcp
+#  iface eth0 inet6 dhcp
 
 # The signalling network interface
 allow-hotplug eth1
   iface eth1 inet dhcp
-  iface eth1 inet6 dhcp
   pre-up [ ! -z "$(ifconfig -a|grep eth1)" ]
+#  iface eth1 inet6 dhcp

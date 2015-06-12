@@ -388,12 +388,15 @@ lease {\n\
   expire 4 2037/12/31 00:00:00;\n\
 }\n\
 " > /var/lib/cc-ovf/${nic}-ipv4.lease
-		    rm -vf /var/lib/dhcp/dhclient.leases 2>&1 | sed -e "s#^#   #"
+		    sed -ie '/#### cc-ovf IPv4 leases begin ####/,/#### cc-ovf IPv4 leases end ####/d' /etc/dhcp/dhclient.conf
+                    printf "#### cc-ovf IPv4 leases begin ####\n" >> /etc/dhcp/dhclient.conf
 		    for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv4.lease" -o -name "${sig_nic}-ipv4.lease" \)); do
-			cat $lease >> /var/lib/dhcp/dhclient.leases
+			cat $lease >> /etc/dhcp/dhclient.conf
 		    done
+                    printf "#### cc-ovf IPv4 leases end ####\n" >> /etc/dhcp/dhclient.conf
+		    cat /etc/dhcp/dhclient.conf 2>&1 | sed -e "s#^#     ${LINENO} #"
 		    log "Retrying DHCP for ${nic} to pickup values from properties..."
-		    dhclient -1 -v ${nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
+		    dhclient -4 -v -1 ${nic}  2>&1 | tee -a /var/log/ovf-sc.dhclient-4.log 2>&1 | sed -e "s#^#     ${LINENO} #"
 		fi
 	    fi
 	done
@@ -401,7 +404,7 @@ lease {\n\
         # If after manufacturing leases from the environment we're still missing some,
         # call it quits, declare an error and wait for operator intervention.
 	if [ "$(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv4.lease" -o -name "${sig_nic}-ipv4.lease" \)|wc -l)" -ne ${#nics[@]} ]; then
-		    err "ERROR: Can't determine network configuration!"
+	    err "ERROR: Can't determine network configuration!"
 	fi
 
 #    set +x
@@ -517,14 +520,16 @@ lease6 {\n\
 		option dhcp6.sntp-servers ${eth[ntp_servers]};\n\
 }\n\
 " > /var/lib/cc-ovf/${nic}-ipv6.lease
-		    rm -vf /var/lib/dhcp/dhclient6.leases 2>&1 | sed -e "s#^#   #"
+		    sed -ie '/#### cc-ovf IPv6 leases begin ####/,/#### cc-ovf IPv6 leases end ####/d' /etc/dhcp/dhclient.conf
+                    printf "#### cc-ovf IPv6 leases begin ####\n" >> /etc/dhcp/dhclient.conf
 		    for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv6.lease" -o -name "${sig_nic}-ipv6.lease" \)); do
-			cat $lease >> /var/lib/dhcp/dhclient6.leases
+			cat $lease >> /etc/dhcp/dhclient.conf
 		    done
-		    cat /var/lib/dhcp/dhclient6.leases 2>&1 | sed -e "s#^#     ${LINENO} #"
+                    printf "#### cc-ovf IPv6 leases end ####\n" >> /etc/dhcp/dhclient.conf
+		    cat /etc/dhcp/dhclient.conf 2>&1 | sed -e "s#^#     ${LINENO} #"
 		    log "Retrying DHCP6 for ${nic} to pickup values from properties..."
 		    killall dhclient > /dev/null 2>&1
-		    dhclient -6 -v -1 ${nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1 
+		    dhclient -6 -v -1 ${nic}  2>&1 | tee -a /var/log/ovf-sc.dhclient-6.log 2>&1 | sed -e "s#^#     ${LINENO} #"
 		fi
 	    fi
 	done
@@ -532,7 +537,7 @@ lease6 {\n\
         # If after manufacturing leases from the environment we're still missing some,
         # call it quits, declare an error and wait for operator intervention.
 	if [ "$(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv6.lease" -o -name "${sig_nic}-ipv6.lease" \)|wc -l)" -ne ${#nics[@]} ]; then
-		    err "ERROR: Can't determine network configuration!"
+	    err "ERROR: Can't determine network configuration!"
 	fi
     fi
 fi
@@ -552,6 +557,12 @@ route -6 2>&1 | sed -e "s#^#     ${LINENO} #"
 mgmt_ip4=$( ip -4 addr show dev ${mgmt_nic}|grep global|sed -e 's#^.*inet* \([^/]*\)/.*$#\1#' )
 mgmt_ip6=$( ip -6 addr show dev ${mgmt_nic}|grep global|sed -e 's#^.*inet6* \([^/]*\)/.*$#\1#' )
 mgmt_ip=${mgmt_ip4}
+tmp_ip=( $mgmt_ip )
+if [ ${#tmp_ip[@]} -ne 1 ]; then
+    echo ip -4 addr show dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
+    ip -4 addr show dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
+    err "ERROR: Can't determine network configuration!"
+fi
 if [ "${mgmt_protocol^^}" == "IPV6" ]; then
     mgmt_ip=${mgmt_ip6}
 fi
@@ -564,6 +575,12 @@ fi
 sig_ip4=$( ip -4 addr show dev ${sig_nic}|grep global|sed -e 's#^.*inet* \([^/]*\)/.*$#\1#' )
 sig_ip6=$( ip -6 addr show dev ${sig_nic}|grep global|sed -e 's#^.*inet6* \([^/]*\)/.*$#\1#' )
 sig_ip=${sig_ip4}
+tmp_ip=( $sig_ip )
+if [ ${#tmp_ip[@]} -ne 1 ]; then
+    echo ip -4 addr show dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
+    ip -4 addr show dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
+    err "ERROR: Can't determine network configuration!"
+fi
 if [ "${sig_protocol^^}" == "IPV6" ]; then
     sig_ip=${sig_ip6}
 fi
@@ -804,6 +821,7 @@ else
 
     subst_files=($(find ${cc_dirs[@]} -type f -print0 2> /dev/null|xargs -0 grep -l "\$[[][^]]*[]]"))
     if [ "${#subst_files[@]}" -gt "0" ]; then
+	grep -q "\$[[][^]]*[]]" /etc/clearwater/*config; cfg_subst=$?
         for file in ${subst_files[@]}; do
 	    subst_vars "$file"
         done
@@ -811,6 +829,10 @@ else
         if [ "${#subst_files[@]}" -gt "0" ]; then
 	    err "ERROR: Invalid substitutions found:" "$(find ${cc_dirs[@]} -type f -print0|xargs -0 grep -n "\$[[][^]]*[]]")"
         fi
+	if [ $cfg_subst -eq 0 ]; then
+	    # start background process to upload initial config to etcd
+	    touch /var/lib/cc-ovf/auto-upload.run
+	fi
     fi
 fi
 

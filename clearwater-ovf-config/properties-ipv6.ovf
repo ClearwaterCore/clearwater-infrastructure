@@ -21,8 +21,9 @@ If this node is a founding member, set this to the nodes that will form the init
 
 
       <Category>Network Configuration</Category>
-      <Property ovf:key="ip_protocol" ovf:qualifiers="ValueMap{&quot;IPv4&quot;}" ovf:type="string" ovf:userConfigurable="true" ovf:value="IPv4">
+      <Property ovf:key="ip_protocol" ovf:qualifiers="ValueMap{&quot;IPv4&quot;,&quot;IPv6/IPv4&quot;,&quot;IPv4/IPv6&quot;}" ovf:type="string" ovf:userConfigurable="true" ovf:value="IPv4">
         <Label>ip_protocol</Label>
+	<Description>Seclect the IP protocol for Clearwater communications. Choose IPv4 for single stack communications. Choose IPv6/IPv4 for dual stack with Clearwater binding to and predominately using IPv6. Choose IPv4/IPv6 for dual stack with Clearwater binding to and predominately using IPv4.</Description>
       </Property>
       <Category>Network Configuration</Category>
       <Property ovf:key="mgmt_mac_address" ovf:type="string" ovf:userConfigurable="true">
@@ -78,6 +79,33 @@ If this node is a founding member, set this to the nodes that will form the init
       </Property>
 
 
+      <Category>Management IPv6 Config</Category>
+      <Property ovf:key="mgmt6_fixed_address" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt6_fixed_address</Label>
+        <Description>The fixed IP address to be assigned to the management interface.</Description>
+      </Property>
+      <Category>Management IPv6 Config</Category>
+      <Property ovf:key="mgmt6_domain_name_servers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt6_domain_name_servers</Label>
+        <Description>The domain-name-servers associated with the management interface.</Description>
+      </Property>
+      <Category>Management IPv6 Config</Category>
+      <Property ovf:key="mgmt6_ntp_servers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt6_ntp_servers</Label>
+        <Description>The ntp-servers associated with the management interface.</Description>
+      </Property>
+      <Category>Management IPv6 Config</Category>
+      <Property ovf:key="mgmt6_domain_search" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt6_domain_search</Label>
+        <Description>The domain-name-search parameter associated with the management interface.</Description>
+      </Property>
+      <Category>Management IPv6 Config</Category>
+      <Property ovf:key="mgmt6_prefix_len" ovf:type="string" ovf:userConfigurable="true">
+        <Label>mgmt6_prefix_len</Label>
+      </Property>
+
+
+
       <Category>Signaling IPv4 Config</Category>
       <Property ovf:key="sig_fixed_address" ovf:type="string" ovf:userConfigurable="true">
         <Label>sig_fixed_address</Label>
@@ -118,6 +146,33 @@ If this node is a founding member, set this to the nodes that will form the init
         <Label>sig_host_name</Label>
         <Description>The host-name associated with the signaling interface.</Description>
       </Property>
+
+
+      <Category>Signaling IPv6 Config</Category>
+      <Property ovf:key="sig6_fixed_address" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig6_fixed_address</Label>
+        <Description>The fixed IP address to be assigned to the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv6 Config</Category>
+      <Property ovf:key="sig6_domain_name_servers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig6_domain_name_servers</Label>
+        <Description>The domain-name-servers associated with the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv6 Config</Category>
+      <Property ovf:key="sig6_ntp_servers" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig6_ntp_servers</Label>
+        <Description>The ntp-servers associated with the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv6 Config</Category>
+      <Property ovf:key="sig6_domain_search" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig6_domain_search</Label>
+        <Description>The domain-name-search parameter associated with the signaling interface.</Description>
+      </Property>
+      <Category>Signaling IPv6 Config</Category>
+      <Property ovf:key="sig6_prefix_len" ovf:type="string" ovf:userConfigurable="true">
+        <Label>sig6_prefix_len</Label>
+      </Property>
+
 
 
       <Category>GR Config</Category>

@@ -1,11 +1,11 @@
 if [ "$(ip netns list)" = "signalling" ]; then 
    signaling_namespace=signalling
-   signaling_dns_server=$(grep "^[[:space:]]*nameserver" /etc/netns/signalling/resolv.conf | awk '{print $2}')
+   signaling_dns_server=$(grep "^[[:space:]]*nameserver" /etc/netns/signalling/resolv.conf | awk '{print $2}'|sed -e :a -e N -e 's/\n/,/' -e ta)
    [ -z "$signaling_namespace" ] || 
    namespace_prefix="ip netns exec $signaling_namespace"
 else
    namespace_prefix=
-
+   signaling_dns_server=$(grep "^[[:space:]]*nameserver" /run/dnsmasq/resolv.conf | awk '{print $2}'|sed -e :a -e N -e 's/\n/,/' -e ta)
 fi
 sig_nic=$( $namespace_prefix /sbin/ifconfig -s|grep eth|awk '{print $1}'|head -1)
 mgmt_nic=$( /sbin/ifconfig -s|grep eth|awk '{print $1}'|head -1)
@@ -26,7 +26,11 @@ if [ "${mgmt_nic}" != "${sig_nic}" ]; then
        management_local_ip=$management_ip6
    fi
    management_public_ip=$management_local_ip
+else
+   management_local_ip=$local_ip
 fi
+management_public_ip=$management_local_ip
+
 home_domain=$(hostname -d)
 public_hostname=$(hostname)
 
