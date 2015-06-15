@@ -3,13 +3,22 @@ home_domain=$(hostname -d)
 # Deployment definitions
 sprout_hostname=sprout.${home_domain}
 hs_hostname=homestead.${home_domain}:8888
-ralf_hostname=ralf.${home_domain}:10888
 chronos_hostname=$local_ip:7253
+# Allow for no ralf(s)
+if [ ! -z "$(dig +noall +answer ralf.${home_domain}|awk '{print $5}')" ]; then
+   ralf_hostname=ralf.${home_domain}:10888
+else
+   ralf_hostname=
+fi
 
 if [ "$(ip netns list)" = "signalling" ]; then 
     sprout_hostname_mgmt=sprout-mgmt.${home_domain}
     hs_hostname_mgmt=homestead-mgmt.${home_domain}
-    ralf_hostname_mgmt=ralf-mgmt.${home_domain}:10888
+    if [ ! -z "$(dig +noall +answer ralf.${home_domain}|awk '{print $5}')" ]; then
+       ralf_hostname_mgmt=ralf-mgmt.${home_domain}:10888
+    else
+       ralf_hostname_mgmt=
+    fi
 fi
 
 # HSS configuration
