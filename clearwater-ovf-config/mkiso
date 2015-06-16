@@ -18,14 +18,13 @@ tar cvzf ${mydir}/CC-ISO/payload.tgz \
     /etc/apt/trusted.gpg \
     /etc/apt/trusted.gpg.d \
     /root/.ssh \
-    /home/ubuntu/.ssh \
-    /home/clearwater/.ssh
+    /home/clearwater/.ssh \
+    /etc/clearwater/shared_config
 
 # Untar the payload into the dirtory tree
 (
     cd ${mydir}/CC-ISO/iso/payload
     tar xvzf ${mydir}/CC-ISO/payload.tgz
-    chown ubuntu:ubuntu home/ubuntu
     chown clearwater:clearwater home/clearwater
 )
 
