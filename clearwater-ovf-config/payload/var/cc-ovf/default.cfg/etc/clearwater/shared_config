@@ -25,7 +25,7 @@ fi
 tmp=$(mktemp);
 ( set +e; dpkg-query -W 2>&1 |grep -q homestead-prov;sta=$?; echo $sta>$tmp )
 sta=$(cat $tmp); tmp=
-if [ $? -ne 0 ]; then
+if [ $sta -ne 0 ]; then
    hss_realm=${home_domain}
    #hss_hostname=hss.${home_domain}
    #hss_port=3868
