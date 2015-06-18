@@ -831,7 +831,7 @@ else
         fi
 	if [ $cfg_subst -eq 0 ]; then
 	    if [ -d /var/lib/clearwater-etcd ]; then
-		rm -rvf /var/lib/clearwater-etcd
+		rm -rvf /var/lib/clearwater-etcd/*
 	    fi
 	    # start background process to upload initial config to etcd
 	    touch /var/lib/cc-ovf/auto-upload.run
