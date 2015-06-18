@@ -830,6 +830,9 @@ else
 	    err "ERROR: Invalid substitutions found:" "$(find ${cc_dirs[@]} -type f -print0|xargs -0 grep -n "\$[[][^]]*[]]")"
         fi
 	if [ $cfg_subst -eq 0 ]; then
+	    if [ -d /var/lib/clearwater-etcd ]; then
+		rm -rvf /var/lib/clearwater-etcd/*
+	    fi
 	    # start background process to upload initial config to etcd
 	    touch /var/lib/cc-ovf/auto-upload.run
 	fi
