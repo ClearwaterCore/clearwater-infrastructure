@@ -35,10 +35,10 @@
 # as those licenses appear in the file LICENSE-OPENSSL.
 
 # Don't execute this script on CC
-dpkg-query -W 2>&1 |grep -q metaswitch-core
-if [ $? -eq 0 ]; then
+#dpkg-query -W 2>&1 |grep -q metaswitch-core
+#if [ $? -eq 0 ]; then
     exit 0
-fi
+#fi
 
 # Read our config file.
 . /etc/clearwater/config
