@@ -829,9 +829,13 @@ else
         if [ "${#subst_files[@]}" -gt "0" ]; then
 	    err "ERROR: Invalid substitutions found:" "$(find ${cc_dirs[@]} -type f -print0|xargs -0 grep -n "\$[[][^]]*[]]")"
         fi
+        printf "Debug info:\n" 2>&1 | sed -e 's#^#   #'
+	printf "cfg_subst=$cfg_subst\n" 2>&1 | sed -e "s#^#     ${LINENO} #"
+	ls -la /var/lib/clearwater-etcd 2>&1 | sed -e "s#^#     ${LINENO} #"
 	if [ $cfg_subst -eq 0 ]; then
 	    if [ -d /var/lib/clearwater-etcd ]; then
-		rm -rvf /var/lib/clearwater-etcd/*
+		printf "/var/lib/clearwater-etcd exists\n" 2>&1 | sed -e "s#^#     ${LINENO} #"
+		rm -rvf /var/lib/clearwater-etcd/* 2>&1 | sed -e "s#^#     ${LINENO} #"
 	    fi
 	    # start background process to upload initial config to etcd
 	    touch /var/lib/cc-ovf/auto-upload.run
