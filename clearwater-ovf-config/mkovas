@@ -15,7 +15,7 @@ cmdname=$(basename $0)
 export "PUBLISH=0"
 export "VMs_only=0"
 export "NO_TEMPLATES=0"
-export "node_types=sprout:ralf:homestead:homestead,homestead-prov"
+export "node_types=sprout:ralf:homestead,homestead-prov:homestead"
 
 usage()
 {
