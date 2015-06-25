@@ -21,7 +21,7 @@ tar cvzf ${mydir}/CC-ISO/payload.tgz \
     /home/clearwater/.ssh \
     /etc/clearwater/shared_config
 
-# Untar the payload into the dirtory tree
+# Untar the payload into the directory tree
 (
     cd ${mydir}/CC-ISO/iso/payload
     tar xvzf ${mydir}/CC-ISO/payload.tgz
