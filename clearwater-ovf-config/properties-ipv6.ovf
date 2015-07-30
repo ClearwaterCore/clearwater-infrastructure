@@ -32,7 +32,7 @@ If this node is a founding member, set this to the nodes that will form the init
       </Property>
       <Category>Network Configuration</Category>
       <Property ovf:key="sig_mac_address" ovf:type="string" ovf:userConfigurable="true">
-        <Label>sig_fixed_address</Label>
+        <Label>sig_mac_address</Label>
         <Description>The MAC address of the signaling network interface. If left blank and there are two network interface provisioned, the second network interface encountered will be the signaling network interface.</Description>
       </Property>
 
@@ -45,7 +45,7 @@ If this node is a founding member, set this to the nodes that will form the init
       <Category>Management IPv4 Config</Category>
       <Property ovf:key="mgmt_subnet_mask" ovf:type="string" ovf:userConfigurable="true">
         <Label>mgmt_subnet_mask</Label>
-        <Description>The subnet-mask for the management intereface.</Description>
+        <Description>The subnet-mask for the management interface.</Description>
       </Property>
       <Category>Management IPv4 Config</Category>
       <Property ovf:key="mgmt_routers" ovf:type="string" ovf:userConfigurable="true">
@@ -114,7 +114,7 @@ If this node is a founding member, set this to the nodes that will form the init
       <Category>Signaling IPv4 Config</Category>
       <Property ovf:key="sig_subnet_mask" ovf:type="string" ovf:userConfigurable="true">
         <Label>sig_subnet_mask</Label>
-        <Description>The subnet-mask for the signaling intereface.</Description>
+        <Description>The subnet-mask for the signaling interface.</Description>
       </Property>
       <Category>Signaling IPv4 Config</Category>
       <Property ovf:key="sig_routers" ovf:type="string" ovf:userConfigurable="true">
