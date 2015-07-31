@@ -22,9 +22,14 @@ if [ "$(ip netns list)" = "signalling" ]; then
 fi
 
 # HSS configuration
-tmp=$(mktemp);
-( set +e; dpkg-query -W 2>&1 |grep -q homestead-prov;sta=$?; echo $sta>$tmp )
-sta=$(cat $tmp); tmp=
+tmp=$(mktemp 2> /dev/null);
+if [ ! -z $tmp ]; then
+   ( set +e; dpkg-query -W 2>&1 |grep -q homestead-prov;sta=$?; echo $sta>$tmp )
+   sta=$(cat $tmp); rm -f $tmp; tmp=
+else
+   sta=1
+fi
+
 if [ $sta -ne 0 ]; then
    hss_realm=${home_domain}
    #hss_hostname=hss.${home_domain}
