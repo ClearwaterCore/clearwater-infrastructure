@@ -194,12 +194,12 @@ printf "\n\
 * OVAs will have Clearwater Core version $(cat ${mydir}/payload/var/cc-ovf/bin/install_ver) installed\n\
 *\n\
 ****************************************************************************\n\n"
-VM_ip=192.168.165.195
+VM_ip=192.168.165.201
 ccServiceUpdate=$(echo ${ccVersion}|sed -e 's#^[^-]*-\([^-]*\)-.*$#\1#')
 if [[ "${ccServiceUpdate}" =~ ^[0-9]+$ ]]; then
     ubu_base=ubu14-base-v7-${ccServiceUpdate}
     if [ ${ccServiceUpdate} -eq 2 ]; then
-	VM_ip=192.168.165.196
+	VM_ip=192.168.165.202
     fi
 else
     ubu_base=ubu14-base-v7-1
