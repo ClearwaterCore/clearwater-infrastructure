@@ -479,6 +479,17 @@ for node_type in "${node_types[@]}"; do
 	fi
     done
 
+    printf "Reset hostname...\n"
+    sta=1
+    while [ $sta -ne 0 ]; do
+     (sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} rm -f /etc/hostname;sta=$?;echo $sta > /tmp/sta) 2>&1|sed -e 's#^#   #'
+     sta=$(cat /tmp/sta)
+     if [ $sta -ne 0 ]; then
+         continue
+     fi
+    done
+
+
     VM_power_down CC-${node_type}-${ccVersion}${ccQualifier}
 done
 
@@ -518,7 +529,7 @@ for node_type in "${node_types[@]}"; do
 	rm -f ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovfe
     fi
 
-    sed -ie '/<AnnotationSection/,/<\/AnnotationSection>/d' ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf 
+    sed -ie '/<AnnotationSection/,/<\/AnnotationSection>/d' ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf
     rm -f ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovfe
     cat > /tmp/$$.ann <<EOF
     <AnnotationSection ovf:required="false">
@@ -557,7 +568,7 @@ EOF
 	printf "Removing CC-${node_type}-${ccVersion}${ccQualifier} OVF files...\n"
 	find ${OVF_dir} -name "CC-${node_type}-${ccVersion}${ccQualifier}*" \! -iname "*.ova" -type f -print0|xargs -0 rm -vf 2>&1|sed -e 's#^#   #'
 	printf "\n"
-	
+
 	if [ $PUBLISH -ne 0 ]; then
 	    printf "\
 Publishing CC-${node_type}-${ccVersion}${ccQualifier}.ova to\n\
