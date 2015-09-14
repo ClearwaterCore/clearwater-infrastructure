@@ -162,6 +162,8 @@ else
     fi
 fi
 
+#!!! HACK THE FOLLOWING LINE TO MATCH THE REQUIRED VERSION !!!
+ccVersion=7.0.0-3-1.0.0
 printf "${ccVersion}" > ${mydir}/payload/var/cc-ovf/bin/install_ver
 
 dpkg-query -W 2>&1 |grep -q sshpass
@@ -194,11 +196,12 @@ printf "\n\
 * OVAs will have Clearwater Core version $(cat ${mydir}/payload/var/cc-ovf/bin/install_ver) installed\n\
 *\n\
 ****************************************************************************\n\n"
-VM_ip=192.168.165.201
+VM_ip=192.168.165.202
 ccServiceUpdate=$(echo ${ccVersion}|sed -e 's#^[^-]*-\([^-]*\)-.*$#\1#')
 if [[ "${ccServiceUpdate}" =~ ^[0-9]+$ ]]; then
-    ubu_base=ubu14-base-v7-${ccServiceUpdate}
-    if [ ${ccServiceUpdate} -eq 2 ]; then
+    ubu_base=ubu14-base-v7-2
+    #ubu_base=ubu14-base-v7-${ccServiceUpdate}
+    if [ ${ccServiceUpdate} -ge 2 ]; then
 	VM_ip=192.168.165.202
     fi
 else
