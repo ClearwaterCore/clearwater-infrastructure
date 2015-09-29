@@ -648,9 +648,9 @@ if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
     ip netns 2>&1 | sed -e 's#^#   #'
 
     (
-    . /var/lib/cc-ovf/dhcp.${mgmt_nic}-ipv4.env
-    echo route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
-    route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
+        . /var/lib/cc-ovf/dhcp.${mgmt_nic}-ipv4.env
+        echo route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
+        route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
     )
 fi
 
