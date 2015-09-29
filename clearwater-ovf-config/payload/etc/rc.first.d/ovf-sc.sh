@@ -57,6 +57,9 @@ exec 2>&1
 # Delay for a few seconds to let other upstart jobs to complete before we begin
 sleep 2
 
+# Truncate the MOTD to avoid messages being left from previous runs.
+: > /etc/motd
+
 # Print banner
 printf "\n\
  * Starting Clearwater Core OVF self configuration:\n\
@@ -90,6 +93,16 @@ err() {
     echo "   $*"
     logger "self-config:" "$*"
     askQuestion "Press <Enter> to continue..."
+
+    # Print a warning to MOTD
+    printf > /etc/motd "
+###############################################################################\n\
+# WARNING: The installation of this node failed with the following output:    #\n\
+#                                                                             #\n\
+# %-75.75s #\n\
+#                                                                             #\n\
+# See /var/log/ovf-sc.log for more detailed information.                      #\n\
+###############################################################################\n" "$*"
     exit 1
 }
 
@@ -433,7 +446,7 @@ lease {\n\
         # If after manufacturing leases from the environment we're still missing some,
         # call it quits, declare an error and wait for operator intervention.
         if [ "$(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv4.lease" -o -name "${sig_nic}-ipv4.lease" \)|wc -l)" -ne ${#nics[@]} ]; then
-            err "ERROR: Can't determine network configuration:\nFailed to create IPv4 leases for each interface."
+            err "ERROR: Failed to create IPv4 leases for each interface."
         fi
     fi
 fi
@@ -542,7 +555,7 @@ lease6 {\n\
         # If after manufacturing leases from the environment we're still missing some,
         # call it quits, declare an error and wait for operator intervention.
         if [ "$(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv6.lease" -o -name "${sig_nic}-ipv6.lease" \)|wc -l)" -ne ${#nics[@]} ]; then
-            err "ERROR: Can't determine network configuration:\nFailed to create IPv6 leases for each interface."
+            err "ERROR: Failed to create IPv6 leases for each interface."
         fi
     fi
 fi
@@ -566,7 +579,7 @@ tmp_ip=( $mgmt_ip )
 if [ ${#tmp_ip[@]} -ne 1 ]; then
     echo ip -4 addr show dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
     ip -4 addr show dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
-    err "ERROR: Can't determine network configuration:\nFailed to detect IP address on ${mgmt_nic}"
+    err "ERROR: Failed to detect IP address on ${mgmt_nic}"
 fi
 if [ "${mgmt_protocol^^}" == "IPV6" ]; then
     mgmt_ip=${mgmt_ip6}
@@ -584,7 +597,7 @@ tmp_ip=( $sig_ip )
 if [ ${#tmp_ip[@]} -ne 1 ]; then
     echo ip -4 addr show dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
     ip -4 addr show dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
-    err "ERROR: Can't determine network configuration:\nFailed to detect IP address on ${sig_nic}"
+    err "ERROR:Failed to detect IP address on ${sig_nic}"
 fi
 if [ "${sig_protocol^^}" == "IPV6" ]; then
     sig_ip=${sig_ip6}
