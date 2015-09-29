@@ -1,0 +1,15 @@
+#!/bin/bash -e
+#
+# rc.first
+#
+# This script is executed at the beginning of each multiuser runlevel.
+
+set +e
+
+if [ -d /etc/rc.first.d ]; then
+    for file in $(find /etc/rc.first.d -type f \! -name '*~' | sort); do
+        [ -x $file ] && openvt -s -w $file
+    done
+fi
+
+exit 0

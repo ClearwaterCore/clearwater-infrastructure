@@ -1,0 +1,677 @@
+#!/bin/bash
+
+vCenter=192.168.160.102
+VM6_host=192.168.160.230
+ESXi_host=${VM6_host}
+vSphere_user=root
+vSphere_password=vmware
+VM6_datastore="datastore1 (4)"
+
+mydir=$(cd `dirname $0`;pwd)
+cwd=$(pwd)
+
+cmdname=$(basename $0)
+
+export "PUBLISH=0"
+export "no_VAs=0"
+export "NO_TEMPLATES=0"
+export "node_types=sprout:ralf:homestead,homestead-prov:homestead"
+
+usage()
+{
+    printf "\
+Usage: $cmdname [OPTION...]\n\
+\n\
+Options:\n\
+  --publish           publish the OVAs to corporate area\n\
+  --no-vas            don't make OVAs/QCOW2s, just leave VMs on vCenter\n\
+  --no-templates      don't make vCenter templates, just leave VMs on vCenter\n\
+  --node-types TYPES  node types to make (default: $node_types)\n\
+  --qualified X       qualifier to be appended to VM/OVA name\n\
+  -h, --help          display this usage\n"
+
+    printf "\n"
+
+    exit 0
+}
+
+error()
+{
+    printf "$@"
+    printf "\n"
+
+    usage
+}
+
+params="$(getopt -o h -l help,publish,no-vas,no-templates,node-types:,qualifier: --name $cmdname -- "$@")"
+
+if [ $? -ne 0 ]; then
+    usage
+fi
+
+eval set -- "$params"
+unset params
+
+while true
+do
+    case $1 in
+	--publish)
+	export "PUBLISH=1"
+	shift 1
+	;;
+	--no-vas)
+	export "no_VAs=1"
+	shift 1
+	;;
+	--no-templates)
+	export "NO_TEMPLATES=1"
+	shift 1
+	;;
+	--node-types)
+	export "node_types=${2-}"
+	shift 2
+	;;
+	--qualifier)
+	export "ccQualifier=-${2-}"
+	shift 2
+	;;
+        --)
+        shift
+        break
+        ;;
+        -h|--help)
+        usage
+        ;;
+        *)
+        usage
+        ;;
+    esac
+done
+
+if [ "$(id -u)" -ne 0 ]; then
+    printf "ERROR: this script must be run as root!\n"
+    exit 1
+fi
+
+build_base=$(dirname $(cd ${mydir}/..;pwd))
+if [ "$(basename ${build_base})" != "cc" ]; then
+    printf "ERROR: can't determine build's base directory!\n"
+    exit 1
+fi
+
+# Pick up the prompting logic
+if [ ! -x ${mydir}/payload/var/cc-ovf/bin/ovf-sc ]; then
+    printf "ERROR: missing - ${mydir}/payload/var/cc-ovf/bin/ovf-sc!\n"
+    exit 1
+fi
+. ${mydir}/payload/var/cc-ovf/bin/ovf-sc
+
+if [ ! -d "${build_base}/REPO/binary" ]; then
+    printf "ERROR: can't determine build's REPO directory!\n"
+    exit 1
+fi
+
+rm -f ${mydir}/payload/var/cc-ovf/bin/install_ver
+if [ "$(cd ${build_base}/REPO/binary; find . -name 'metaswitch-core-sprout_*.install'|wc -l)" -gt 1 ]; then
+    avail_vers=( $(cd ${build_base}/REPO/binary; find . -name 'metaswitch-core-sprout_*.install'|sed -e 's#^[^_]*_\([^_]*\)_all.install$#\1#'|sort -u) )
+    printf "WARN: couldn't determine CC version!\n"
+
+    # Default to the first version
+    install_ver=1
+    let "cmd_done=0"
+    while [ $cmd_done -eq 0 ]; do
+	let "prompt_done=0"
+	while [ $prompt_done -eq 0 ]; do
+	    printf "\nPlease choose one of the following:\n\n"
+	    let i=1
+	    for ver in ${avail_vers[@]}; do
+		printf "  $i: $ver\n"
+		let "i=$i + 1"
+	    done
+	    doPrompt "Pick a version" "" "$install_ver"
+	    if [[ "$RESPONSE" =~ ^[0-9]+$ ]]; then
+		if [[ "$RESPONSE" -gt 0 && "$RESPONSE" -le ${#avail_vers[@]} ]]; then
+		    let "prompt_done=1"
+		else
+		    printf "[YOUR INPUT WAS NOT UNDERSTOOD]\n"
+		fi
+	    else
+		printf "[YOUR INPUT WAS NOT UNDERSTOOD]\n"
+	    fi
+	done
+        install_ver=$RESPONSE
+
+	doConfirm
+	cfrm=$?
+	if [ $cfrm -eq 1 ]; then
+	    let "cmd_done=1"
+	fi
+	if [ $cfrm -eq 2 ]; then
+	    printf "cancelled by user\n"
+	    let "cmd_done=1"
+	    exit 1
+	fi
+    done
+
+    let "install_ver=$install_ver - 1"
+    ccVersion=${avail_vers[$install_ver]}
+else
+    ccVersion=$(cd ${build_base}/REPO/binary; find . -name 'metaswitch-core*.install'|tail -1|sed -e 's#^[^_]*_\([^_]*\)_all.install$#\1#')
+    if [ -z "${ccVersion}" ]; then
+	printf "ERROR: couldn't determine CC version!\n"
+	exit 1
+    fi
+fi
+
+printf "${ccVersion}" > ${mydir}/payload/var/cc-ovf/bin/install_ver
+
+dpkg-query -W 2>&1 |grep -q sshpass
+if [ $? -ne 0 ]; then
+    printf "\
+ERROR: The program 'sshpass' is currently not installed. You can install it by typing:\n\
+       sudo apt-get install sshpass\n"
+    exit 1
+fi
+
+ova_target_ip=$(dig +noall +answer restfile1.datcon.co.uk|awk '{print $5}')
+if [ -z $ova_target_ip ]; then
+    ova_target_ip=172.28.10.16
+fi
+
+if [ $PUBLISH -ne 0 ]; then
+    ova_target_dir=/mnt/ova_target
+    umount -f //${ova_target_ip}/softwaredistribution/VirtAppliances/VMware/OBU > /dev/null 2>&1
+    mkdir -p ${ova_target_dir}
+    mount -t cifs -o user=sbdbuilder,password=SBDbu1ld3r,domain=DCL,sec=ntlmsspi //${ova_target_ip}/softwaredistribution/VirtAppliances/VMware/OBU ${ova_target_dir} > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+	printf "ERROR: couldn't mount OVA drop zone - //${ova_target_ip}/softwaredistribution/VirtAppliances/VMware/OBU!\n"
+	exit 1
+    fi
+fi
+
+printf "\n\
+****************************************************************************\n\
+*\n\
+* OVAs will have Clearwater Core version $(cat ${mydir}/payload/var/cc-ovf/bin/install_ver) installed\n\
+*\n\
+****************************************************************************\n\n"
+VM_ip=192.168.165.201
+ccServiceUpdate=$(echo ${ccVersion}|sed -e 's#^[^-]*-\([^-]*\)-.*$#\1#')
+ccMajor=$(echo ${ccVersion}|sed -e 's#^\([^.]*\)[.].*$#\1#')
+if [[ "${ccServiceUpdate}" =~ ^[0-9]+$ ]]; then
+    ubu_base=ubu14-base-v${ccMajor}-${ccServiceUpdate}
+    if [ ${ccServiceUpdate} -ne 1 ]; then
+	VM_ip=192.168.165.202
+	ubu_base=ubu14-base-v${ccMajor}-2
+    fi
+else
+    ubu_base=ubu14-base-v${ccMajor}-1
+fi
+
+OVF_dir=${build_base}/OVAs
+node_types=( $(echo $node_types|sed -e 's#:# #g') )
+
+VM_power_down()
+{
+    vmid=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} /bin/vim-cmd vmsvc/getallvms 2>&1 |grep -v Warning:|grep ${1}|awk '{print $1}')
+    if [[ "$vmid" =~ ^[0-9]+$ ]]; then
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} /bin/vim-cmd vmsvc/power.getstate ${vmid} 2>&1|grep -q "Powered on"
+	if [ $? -eq 0 ]; then
+	    printf "Shutting down VM ${1}...\n"
+	    sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null  ${vSphere_user}@${VM_ip} sh -xc \"sync\;sync\;hostname\;shutdown now\;sleep 5\;hostname\" 2>&1|sed -e 's#^#   #'
+	    printf "Powering down VM ${1}...\n"
+	    ssh -i ~/.ssh/clearwateruser.pem ubuntu@richsiptest1.richlab.datcon.co.uk /usr/lib/vmware-vcli/apps/vm/vmcontrol.pl --url https://${vCenter} --username ${vSphere_user} --password ${vSphere_password} --vmname ${1} --operation poweroff 2>&1|sed -e 's#^#   #'
+	    printf "\n"
+
+	    printf "Waiting for power down to complete..."
+	    while [ true ]; do
+		sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null  ${vSphere_user}@${VM_ip} hostname > /dev/null 2>&1
+		if [ $? -ne 0 ]; then
+		    break
+		fi
+		printf "."
+	    done
+	    printf "done\n"
+	fi
+    fi
+}
+
+VM_power_up()
+{
+    printf "Powering on VM ${1}...\n"
+    ssh -i ~/.ssh/clearwateruser.pem ubuntu@richsiptest1.richlab.datcon.co.uk /usr/lib/vmware-vcli/apps/vm/vmcontrol.pl --url https://${vCenter} --username ${vSphere_user} --password ${vSphere_password} --vmname ${1} --operation poweron 2>&1|sed -e 's#^#   #'
+    printf "\n"
+    printf "Trying to connect to VM ${1}..."
+    while [ true ]; do
+	sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} hostname > /dev/null 2>&1
+	if [ $? -eq 0 ]; then
+	    sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} find /usr > /dev/null 2>&1
+	    if [ $? -eq 0 ]; then
+		break
+	    fi
+	    printf "+"
+	    continue
+	fi
+	printf "."
+    done
+    printf "connected!\n"
+}
+
+VM_reboot()
+{
+    printf "Rebooting VM ${1}...\n"
+    ssh -i ~/.ssh/clearwateruser.pem ubuntu@richsiptest1.richlab.datcon.co.uk /usr/lib/vmware-vcli/apps/vm/vmcontrol.pl --url https://${vCenter} --username ${vSphere_user} --password ${vSphere_password} --vmname ${1} --operation reboot 2>&1|sed -e 's#^#   #'
+    printf "\n"
+    printf "Trying to connect to VM ${1}..."
+    while [ true ]; do
+	sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} hostname > /dev/null 2>&1
+	if [ $? -eq 0 ]; then
+	    sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} find /usr > /dev/null 2>&1
+	    if [ $? -eq 0 ]; then
+		break
+	    fi
+	    printf "+"
+	    continue
+	fi
+	printf "."
+    done
+    printf "connected!\n"
+}
+
+VM_destroy()
+{
+    VM_power_down ${1}
+
+    vmx=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"find /vmfs -name \"${1}.vmx\" -print0\|xargs -0 ls -lart\"|awk '{print $9}'|tail -1)
+    vmtx=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"find /vmfs -name \"${1}.vmtx\" -print\"|tail -1)
+    if [ ! -z "$vmtx" ]; then
+	printf "Marking ${1} as a VM for deletion...\n"
+	ssh -i ~/.ssh/clearwateruser.pem ubuntu@richsiptest1.richlab.datcon.co.uk /usr/lib/vmware-vcli/apps/vm/vmtemplate.pl --url https://${vCenter} --username ${vSphere_user} --password ${vSphere_password} --vmname ${1} --operation VM --pool mkovas --host ${ESXi_host} 2>&1|sed -e 's#^#   #'
+	printf "\n"
+
+	vmtx=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"find /vmfs -name \"${1}.vmtx\" -print\"|tail -1)
+	if [ ! -z "$vmtx" ]; then
+	    printf "\
+****\n\
+*\n\
+* ERROR: Don't know how to destroy template ${1} (${vmtx})!\n\
+*\n\
+*   Use vSphere web client to remove template(s).\n\
+*\n\
+****\n"
+	    if [ $PUBLISH -ne 0 ]; then
+		umount -f //${ova_target_ip}/softwaredistribution/VirtAppliances/VMware/OBU > /dev/null 2>&1
+	    fi
+	    exit 1
+	fi
+    fi
+    vmid=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} /bin/vim-cmd vmsvc/getallvms 2>&1 |grep -v Warning:|grep ${1}|awk '{print $1}')
+    if [[ "$vmid" =~ ^[0-9]+$ ]]; then
+	printf "Destroying VM ${1} (vmid=${vmid})...\n"
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} /bin/vim-cmd vmsvc/destroy ${vmid} 2>&1|sed -e 's#^#   #'
+
+	printf "Unregister VM ${1}...\n"
+	ssh -q -i ~/.ssh/clearwateruser.pem ubuntu@richsiptest1.richlab.datcon.co.uk /usr/lib/vmware-vcli/apps/vm/vmregister.pl --url https://${vCenter} \
+	    --username ${vSphere_user} \
+	    --password ${vSphere_password} \
+	    --vmname ${1} \
+	    --hostname ${ESXi_host} \
+	    --operation unregister 2>&1|sed -e 's#^#   #'
+	printf "\n"
+    fi
+}
+
+VM_clone()
+{
+    printf "Cloning VM ${1} to VM ${2}...\n"
+    ssh -q -i ~/.ssh/clearwateruser.pem ubuntu@richsiptest1.richlab.datcon.co.uk /usr/lib/vmware-vcli/apps/vm/vmclone.pl --url https://${vCenter} \
+	--username ${vSphere_user} \
+	--password ${vSphere_password} \
+	--vmname ${1} \
+	--vmhost ${ESXi_host} \
+	--vmname_destination ${2} 2>&1|sed -e 's#^#   #'
+    printf "\n"
+}
+
+# Make sure we have a place to put our OVFs/OVAs
+mkdir -p ${OVF_dir}
+
+# Make way for our new VMs
+VM_destroy CC-${ccVersion}${ccQualifier}
+for type in "${node_types[@]}"; do
+    VM_destroy CC-${type}-${ccVersion}${ccQualifier}
+done
+
+# Make a clone of our base VM
+VM_clone ${ubu_base} CC-${ccVersion}${ccQualifier}
+
+# Turn it on so we load it up with goodies
+VM_power_up CC-${ccVersion}${ccQualifier}
+
+printf "Making config payload:\n"
+(
+    cd ${build_base}/clearwater-infrastructure/clearwater-ovf-config/payload
+    tar cvzf /var/tmp/cfg-payload.tgz . 2>&1|sed -e 's#^#   #'
+)
+
+printf "Transferring configuration payload..."
+(
+    sta=1
+    while [ $sta -ne 0 ]; do
+	sshpass -p '!bootstrap' scp -q -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /var/tmp/cfg-payload.tgz ${vSphere_user}@${VM_ip}:/tmp; sta=$?
+    done
+) 2>&1|sed -e 's#^#   #'
+printf "done!\n"
+
+#read -p "Press enter to continue: " a
+
+printf "Unloading configuration payload on VM CC-${ccVersion}${ccQualifier}...\n"
+(
+    sta=1
+    while [ $sta -ne 0 ]; do
+	sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null  ${vSphere_user}@${VM_ip} 'bash -c "tar tvzf /tmp/cfg-payload.tgz;tar xvzf /tmp/cfg-payload.tgz -C /"';sta=$?
+    done
+)  2>&1|sed -e 's#^#   #'
+
+printf "Disable configurator VM CC-${ccVersion}${ccQualifier}...\n"
+(
+    sta=1
+    while [ $sta -ne 0 ]; do
+	sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null  ${vSphere_user}@${VM_ip} 'bash -c "mv /var/cc-ovf/configurator /var/cc-ovf/configurator.not"';sta=$?
+    done
+)  2>&1|sed -e 's#^#   #'
+
+#read -p "Press enter to continue: " a
+
+printf "Running setup script on VM CC-${ccVersion}${ccQualifier}..."
+(
+    sta=1
+    while [ $sta -ne 0 ]; do
+	sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null  ${vSphere_user}@${VM_ip} 'bash -cx "cat /etc/apt/sources.list;/var/cc-ovf/bin/setup"';sta=$?
+    done
+) 2>&1|sed -e 's#^#   #'
+printf "\n"
+
+printf "Tranferring ${ccVersion} Debian repository to VM...\n"
+(
+    cd ${build_base}/REPO/
+    (
+	sta=1
+	while [ $sta -ne 0 ]; do
+	    sshpass -p '!bootstrap' scp -q -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p -r . root@${VM_ip}:/var/cc-ovf;sta=$?
+	done
+    ) 2>&1|sed -e 's#^#   #'
+)
+
+printf "Creating Package database for Debian repo on VM CC-${ccVersion}${ccQualifier}...\n"
+(
+    sta=1
+    while [ $sta -ne 0 ]; do
+	sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} 'bash -xc "cd /var/cc-ovf;pwd;area=binary;dpkg-scanpackages --multiversion \$area /dev/null > \$area/Packages && gzip -9c \$area/Packages > $area/Packages.gz && rm -vf \$area/Release \$area/Release.gpg && apt-ftparchive -o APT::FTPArchive::Release::Codename=\$area release \$area > \$area/Release && gpg -abs -u maintainers@projectclearwater.org --batch --yes --passphrase dcl1234! --output \$area/Release.gpg \$area/Release;gpg -a --export maintainers@projectclearwater.org > Release.asc"';sta=$?
+    done
+)  2>&1|sed -e 's#^#   #'
+
+printf "Updating APT on VM...\n"
+(
+    sta=1
+    while [ $sta -ne 0 ]; do
+	sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} apt-get update;sta=$?
+    done
+) 2>&1|sed -e 's#^#   #'
+
+#read -p "Press enter to continue: " a
+# Now we have our Clearwater Core base VM for this release, so power it down and build individual node types
+VM_power_down CC-${ccVersion}${ccQualifier}
+
+for node_type in "${node_types[@]}"; do
+    let done=0
+    while [ $done -eq 0 ]; do
+	# Make way for node type VM
+	VM_destroy CC-${node_type}-${ccVersion}${ccQualifier}
+	VM_clone CC-${ccVersion}${ccQualifier} CC-${node_type}-${ccVersion}${ccQualifier}
+	VM_power_up CC-${node_type}-${ccVersion}${ccQualifier}
+	cwrm=ls
+
+	sta=1
+	while [ $sta -ne 0 ]; do
+	    sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} ls > /dev/null 2>&1;sta=$?
+	    if [ $sta -ne 0 ]; then
+		continue
+	    fi
+	    sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} rm -f /var/lib/dpkg/lock /var/cache/apt/archives/lock\;${cwrm} > /dev/null 2>&1
+	done
+	cwrm=ls
+
+	for type in $(echo $node_type|sed -e 's#,# #g'); do
+	    printf "Installing ${type} on VM...\n"
+	    (
+		(sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} /var/cc-ovf/bin/install ${type}; sta=$?; echo $sta > /tmp/sta) 2>&1 | tee /tmp/${type}.out
+	    ) 2>&1|sed -e 's#^#   #'
+	    sta=$(cat /tmp/sta)
+	    grep -q "ERROR:" /tmp/${type}.out
+	    if [[ $? -eq 0 || $sta -ne 0 ]]; then
+		printf "****\n*\n* WARN: failure installing $type - retrying!\n*\n****\n" 2>&1|sed -e 's#^#   #'
+		cwrm=clearwater-remove
+		break
+	    fi
+	done
+	if [ "$cwrm" == "ls" ]; then
+	    printf "Making reversion package:\n"
+	    (
+		(sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} tar cvzf /var/tmp/ovf.clearwater.tgz /etc/clearwater/ /etc/cassandra/ /etc/chronos/;sta=$?;echo $sta > /tmp/sta) 2>&1 | tee /tmp/${type}.out
+	    ) 2>&1|sed -e 's#^#   #'
+
+	    let done=1
+
+	    printf "What's installed per clearwater-version:\n"
+	    (
+		sta=1
+		while [ $sta -ne 0 ]; do
+		    (sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} clearwater-version;sta=$?;echo $sta > /tmp/sta) 2>&1 | tee /tmp/${type}.out
+		    sta=$(cat /tmp/sta)
+		    grep -q "clearwater-version: command not found" /tmp/${type}.out
+		    if [ $? -eq 0 ]; then
+			printf "****\n*\n* WARN: failure installing $type - retrying!\n*\n****\n" 2>&1|sed -e 's#^#   #'
+			cwrm=clearwater-remove
+			break
+		    fi
+		done
+	    ) 2>&1|sed -e 's#^#   #'
+	    grep -q "clearwater-version: command not found" /tmp/${type}.out
+	    if [ $? -eq 0 ]; then
+		cwrm=clearwater-remove
+	    	let done=0
+	    fi
+	fi
+    done
+
+    printf "Enabling configurator...\n"
+    (
+	(sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} mv /var/cc-ovf/configurator.not /var/cc-ovf/configurator;sta=$?;echo $sta > /tmp/sta) 2>&1 | tee /tmp/${type}.out
+    ) 2>&1|sed -e 's#^#   #'
+
+    #read -p "Press enter to continue: " a
+
+    printf "Removing local repo from APT sources...\n"
+    sta=1
+    while [ $sta -ne 0 ]; do
+	(sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} cp -p /etc/apt/sources.list.bak /etc/apt/sources.list\; apt-get update;sta=$?;echo $sta > /tmp/sta) 2>&1|sed -e 's#^#   #'
+	sta=$(cat /tmp/sta)
+	if [ $sta -ne 0 ]; then
+	    continue
+	fi
+    done
+
+    printf "Make soft partitions...\n"
+    sta=1
+    while [ $sta -ne 0 ]; do
+	(sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} /usr/bin/clearwater-limitdir /var/clearwater-diags-monitor/dumps -l 5G -y\;/usr/bin/clearwater-limitdir /var/log -l 2G -y;sta=$?;echo $sta > /tmp/sta) 2>&1|sed -e 's#^#   #'
+	sta=$(cat /tmp/sta)
+	if [ $sta -ne 0 ]; then
+	    continue
+	fi
+    done
+
+    printf "Reset hostname...\n"
+    sta=1
+    while [ $sta -ne 0 ]; do
+	(sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} rm -f /etc/hostname;sta=$?;echo $sta > /tmp/sta) 2>&1|sed -e 's#^#   #'
+	sta=$(cat /tmp/sta)
+	if [ $sta -ne 0 ]; then
+	    continue
+	fi
+    done
+
+    VM_power_down CC-${node_type}-${ccVersion}${ccQualifier}
+done
+
+rm -f ${OVF_dir}/CC-${ccVersion}${ccQualifier}*
+
+for node_type in "${node_types[@]}"; do
+    vmx=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"find /vmfs -name \"CC-${node_type}-${ccVersion}${ccQualifier}.vmx\" -print0\|xargs -0 ls -lart\"|awk '{print $9}'|tail -1)
+    vmid=$(ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} /bin/vim-cmd vmsvc/getallvms 2>&1 |grep -v Warning:|grep c"c-${node_type}-${ccVersion}${ccQualifier}.vmx"|awk '{print $1}')
+    ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"grep "ethernet0[.]" ${vmx}\" > /tmp/CC-${node_type}-${ccVersion}${ccQualifier}.eth0.cfg
+
+    VM_power_down CC-${node_type}-${ccVersion}${ccQualifier}
+
+    if [ 1 -eq 1 ]; then
+	printf "Updating settings in VM...\n"
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sed -ie '/^ethernet0[.]/d\;/^numvcpus/d\;/^memSize/d' ${vmx} 2>&1|sed -e 's#^#   #'
+	scp -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/CC-${node_type}-${ccVersion}${ccQualifier}.eth0.cfg ${vSphere_user}@${ESXi_host}:/tmp 2>&1|sed -e 's#^#   #'
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"cat /tmp/CC-${node_type}-${ccVersion}${ccQualifier}.eth0.cfg \>\> ${vmx}\" 2>&1|sed -e 's#^#   #'
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} 'sh -c "echo memSize = \\\"4096\\\"" > /tmp/vmx' 2>&1|sed -e 's#^#   #'
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} 'sh -c "echo numvcpus = \\\"2\\\"" >> /tmp/vmx' 2>&1|sed -e 's#^#   #'
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"cat /tmp/vmx \>\> ${vmx}\" 2>&1|sed -e 's#^#   #'
+
+	printf "Reloading VM CC-${node_type}-${ccVersion}${ccQualifier}...\n"
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} /bin/vim-cmd vmsvc/reload ${vmid} 2>&1|sed -e 's#^#   #'
+    fi
+
+    # There seems to be some time lag between the above register and when the vCenter
+    # actually knows about it...
+    sleep 15
+    while [ true ]; do
+	printf "Retrieving OVF for CC-${node_type}-${ccVersion}${ccQualifier}...\n"
+	echo 1 > ovftool.sta
+	((time stdbuf -i0 -o0 -e0 ovftool --overwrite "vi://${vSphere_user}:${vSphere_password}@${vCenter}/RichLab/vm/CC-${node_type}-${ccVersion}${ccQualifier}" ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf; echo $? > ovftool.sta) 2>&1|stdbuf -i0 -o0 -e0 sed -e 's#^#   #')&
+	pid=$!
+
+	stm=$(date +%s)
+	psz=$(ls -l ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}-*.tmp 2>&1 |awk '{print $5}')
+	while [ -z $psz ]; do
+	    psz=$(ls -l ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}-*.tmp 2>&1 |awk '{print $5}')
+	done
+	ps -p $pid > /dev/null 2>&1
+	while [ $? -eq 0 ]; do
+	    sz=$(ls -l ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}-*.tmp 2>&1 |awk '{print $5}')
+	    let "dsz=$sz - $psz"
+	    if [ $dsz -eq 0 ]; then
+		ctm=$(date +%s)
+		let "dtm=$ctm - $stm"
+		if [ $dtm -gt 20 ]; then
+		    ps -p $pid > /dev/null 2>&1
+		    if [ $? -ne 0 ]; then
+			break
+		    fi
+		    printf "\novftool stalled!\n"
+		    echo kill -TERM $pid
+		    kill -TERM $pid
+		    kill -9 $(pgrep ovftool)
+		    break
+		fi
+	    else
+		psz=$sz
+		stm=$(date +%s)
+		printf "   %10d\r" "$sz"
+	    fi
+	    sleep 1
+	    ps -p $pid > /dev/null 2>&1
+	done
+	wait $pid
+	trap - TERM INT
+
+	sta=$(cat ovftool.sta)
+	if [ $sta -eq 0 ]; then
+	    break
+	fi
+	printf "\n"
+    done
+
+    if [ -e ${mydir}/properties.ovf ]; then
+	printf "Adding property definitions to OVF...\n"
+	# Add our property definitions to the OVF
+	sed -ie "/<\/VirtualHardwareSection>/ r ${mydir}/properties.ovf" ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf
+	rm -f ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovfe
+    fi
+
+    sed -ie '/<AnnotationSection/,/<\/AnnotationSection>/d' ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf 
+    rm -f ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovfe
+    cat > /tmp/$$.ann <<EOF
+    <AnnotationSection ovf:required="false">
+      <Info>A human-readable annotation</Info>
+      <Annotation>
+Metaswitch, Inc.
+Clearwater Core (${ccVersion}) ${node_type} node template.
+Created - $(date --utc)
+      </Annotation>
+    </AnnotationSection>
+EOF
+	sed -ie "/<\/ProductSection>/ r /tmp/$$.ann" ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf
+	rm -f /tmp/$$.ann ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovfe
+
+	sed -ie "/CC-${node_type}-${ccVersion}${ccQualifier}.ovf/d" ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.mf
+	(cd ${OVF_dir}; openssl sha1 CC-${node_type}-${ccVersion}${ccQualifier}.ovf >>  ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.mf)
+	rm -f ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.mfe
+
+	while [ true ]; do
+	    printf "Updating OVF CC-${node_type}-${ccVersion}${ccQualifier} with property definitions...\n"
+	    (time stdbuf -i0 -o0 -e0 ovftool -n=CC-${node_type}-${ccVersion}${ccQualifier} -ds="${VM6_datastore}" --overwrite --skipManifestCheck ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf "vi://${vSphere_user}:${vSphere_password}@${vCenter}/RichLab/host/${ESXi_host}/Resources"; echo $? > ovftool.sta) 2>&1|sed -e 's#^#   #'
+	    sta=$(cat ovftool.sta)
+	    if [ $sta -eq 0 ]; then
+		break
+	    fi
+	    printf "\n"
+	done
+
+	if [ $NO_TEMPLATES -eq 0 ]; then
+	    printf "Marking CC-${node_type}-${ccVersion}${ccQualifier} as a template...\n"
+	    ssh -i ~/.ssh/clearwateruser.pem ubuntu@richsiptest1.richlab.datcon.co.uk /usr/lib/vmware-vcli/apps/vm/vmtemplate.pl --url https://${vCenter} --username ${vSphere_user} --password ${vSphere_password} --vmname CC-${node_type}-${ccVersion}${ccQualifier} --operation T 2>&1|sed -e 's#^#   #'
+	    printf "\n"
+	fi
+
+	if [ $no_VAs -eq 0 ]; then
+	    printf "Converting CC-${node_type}-${ccVersion}${ccQualifier} OVF to QCOW2...\n"
+	    (time qemu-img convert -O qcow2 ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}-disk1.vmdk ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.qcow2) 2>&1|sed -e 's#^#   #'
+	    printf "\n"
+
+	    while [ true ]; do
+		printf "Converting CC-${node_type}-${ccVersion}${ccQualifier} OVF to OVA...\n"
+		(time stdbuf -i0 -o0 -e0 ovftool --compress=9 --overwrite ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ovf ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ova; echo $? > ovftool.sta) 2>&1|sed -e 's#^#   #'
+		printf "\n"
+		sta=$(cat ovftool.sta)
+		if [ $sta -eq 0 ]; then
+		    break
+		fi
+	    done
+	    chmod +r ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ova
+	fi
+
+	printf "Removing CC-${node_type}-${ccVersion}${ccQualifier} OVF files...\n"
+	find ${OVF_dir} -name "CC-${node_type}-${ccVersion}${ccQualifier}*" \( \! -iname "*.ova" -and \! -iname "*.qcow2" \) -type f -print0|xargs -0 rm -vf 2>&1|sed -e 's#^#   #'
+	printf "\n"
+	
+	if [ $PUBLISH -ne 0 ]; then
+	    printf "\
+Publishing CC-${node_type}-${ccVersion}${ccQualifier}.ova to\n\
+  //${ova_target_ip}/softwaredistribution/VirtAppliances/VMware/OBU (${ova_target_dir}):\n"
+	    (echo cp -vpu ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ova ${ova_target_dir};time cp -vpu ${OVF_dir}/CC-${node_type}-${ccVersion}${ccQualifier}.ova ${ova_target_dir}) 2>&1|sed -e 's#^#    #'
+	fi
+done
+
+if [ $PUBLISH -ne 0 ]; then
+    umount -f //${ova_target_ip}/softwaredistribution/VirtAppliances/VMware/OBU > /dev/null 2>&1
+fi
+
+VM_destroy CC-${ccVersion}${ccQualifier}
+
+exit 0

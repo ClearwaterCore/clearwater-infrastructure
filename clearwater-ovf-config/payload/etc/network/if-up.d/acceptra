@@ -1,0 +1,5 @@
+#!/bin/sh
+
+if [ "$ADDRFAM" = "inet6" ]; then
+    sysctl -w "net.ipv6.conf.$IFACE.accept_ra=1"
+fi
