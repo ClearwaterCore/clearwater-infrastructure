@@ -71,12 +71,6 @@ billing_realm=billing.${home_domain}
 # SNMP alarm/trap handler
 snmp_ip=alarm-sink.${home_domain}
 
-###############################################################################
-#
-# ADD NON-GENERIC CLEARWATER CONFIGURATION SETTING BELOW
-#
-###############################################################################
-
 # I-CSCF/S-CSCF configuration
 icscf=5052
 scscf=5054
@@ -86,3 +80,9 @@ scscf_uri="sip:sprout.${home_domain};transport=TCP"
 #   Note: Sprout wants an IP address not a FQDN, so look it up
 enum_server=enum.${home_domain}
 enum_server=$(dig +noall +answer enum.${home_domain} 2>&1 | awk '{print $5}')
+
+###############################################################################
+#
+# ADD NON-GENERIC CLEARWATER CONFIGURATION SETTINGS BELOW
+#
+#vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
