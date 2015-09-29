@@ -1,0 +1,16 @@
+#!/bin/bash
+
+mydir=$(cd `dirname $0`;pwd)
+
+ccVersion=$(cd ${mydir}/../binary; find . -name "metaswitch-core-${1}_*_all.install"|tail -1|sed -e 's#^[^_]*_\([^_]*\)_all.install$#\1#')
+if [ -e ${mydir}/install_ver ]; then
+    ccVersion=$(cd ${mydir}/../binary; find . -name "metaswitch-core-${1}_$(cat ${mydir}/install_ver)_all.install"|tail -1|sed -e 's#^[^_]*_\([^_]*\)_all.install$#\1#')
+fi
+if [ -s ${mydir}/../binary/metaswitch-core-${1}_${ccVersion}_all.install ]; then
+    apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install --force-yes $(cat ${mydir}/../binary/metaswitch-core-${1}_${ccVersion}_all.install)
+else
+    printf "ERROR: can't find '$1' to install!\n"
+    exit 1
+fi
+exit 0
+
