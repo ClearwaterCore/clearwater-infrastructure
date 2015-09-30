@@ -355,6 +355,15 @@ rm -vf /var/run/dhclient*.pid 2>&1 | sed -e "s#^#     ${LINENO} #"
 echo service networking restart 2>&1 | sed -e "s#^#     ${LINENO} #"
 service networking restart 2>&1 | sed -e "s#^#     ${LINENO} #"
 
+
+###############################################################################
+# IP Configuration:                                                           #
+#     We use DHCP through 'dhclient' to configure all network interfaces      #
+#     (initially in the management namespace) then move the signalling        #
+#     interface to its own namespace. Doing this removes any config and so we #
+#     re-configure it later on.                                               #
+###############################################################################
+
 # IPv4 self configuration
 if [ $doIPv4 -ne 0 ]; then
     # Force release of leases and install static fallback leases, if available
@@ -631,6 +640,8 @@ if [ "${mgmt_nic}" != "${sig_nic}" ]; then
     arping -c2 -A -I ${sig_nic} ${sig_ip4} 2>&1 | sed -e 's#^#   #'
 fi
 
+# If using split namespaces, move the signalling interface across and then
+# re-apply config obtained through DHCP
 if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
     log "INFO: Configuring signalling network namespace"
 
