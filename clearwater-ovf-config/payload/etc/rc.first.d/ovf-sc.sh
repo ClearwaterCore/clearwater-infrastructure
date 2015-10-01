@@ -94,7 +94,8 @@ err() {
     logger "self-config:" "$*"
     askQuestion "Press <Enter> to continue..."
 
-    # Print a warning to MOTD
+    # Print a warning that will be displayed to users when logging in to inform
+    # them of the error.
     printf > /etc/motd "
 ###############################################################################\n\
 # WARNING: The installation of this node failed with the following output:    #\n\
@@ -169,7 +170,8 @@ if [ ! -s /var/lib/cc-ovf/ovf.vars ]; then
         fi
     fi
 else
-    # Compare checksum of newly read properties with the previous version.
+    # Check that the VMware properties have not been changed from the
+    # previously read version.
     vars_md5=$(md5sum -b /var/lib/cc-ovf/ovf.vars|awk '{print $1}')
     if [ -e /var/lib/cc-ovf/vars.md5 ]; then
         if [ "$(cat /var/lib/cc-ovf/vars.md5)" != "$vars_md5" ]; then
