@@ -72,80 +72,94 @@ if [ -r /var/cc-ovf/cc-auto-install-nodes ]; then
     first=1
     node_types=$(cat /var/cc-ovf/cc-auto-install-nodes)
     for node_type in $node_types; do
-	if [[ "${node_type}" =~ (homestead|ralf|sprout) ]]; then
-	    ccVersion=$(cd /var/cc-ovf/binary; find . -name "metaswitch-core-${node_type}_*_all.install"|tail -1|sed -e 's#^[^_]*_\([^_]*\)_all.install$#\1#')
-	    if [ ! -x /etc/init.d/${node_type} ]; then
-		if [ $first -ne 0 ]; then
-		    if [ 0 -eq 1 ]; then
-			printf "\n\
+        if [[ "${node_type}" =~ (homestead|ralf|sprout) ]]; then
+            ccVersion=$(cd /var/cc-ovf/binary; find . -name "metaswitch-core-${node_type}_*_all.install"|tail -1|sed -e 's#^[^_]*_\([^_]*\)_all.install$#\1#')
+            if [ ! -x /etc/init.d/${node_type} ]; then
+                if [ $first -ne 0 ]; then
+                    if [ 0 -eq 1 ]; then
+                        printf "\n\
 ***************************************************************************\n\
 ***************************************************************************\n\
 ***************************************************************************\n\
 \n\
 Ready to install Clearwater Core ($ccVersion) ${node_types} software.\n\
 "
-			printf "Press <enter> to continue..."
-			read RESPONSE
-		    fi
-		fi
-		first=0
-		printf "\n\
+                        printf "Press <enter> to continue..."
+                        read RESPONSE
+                    fi
+                fi
+                first=0
+                printf "\n\
 ***************************************************************************\n\
 ***************************************************************************\n\
 ***************************************************************************\n\
 \n\
 Installing Clearwater Core ($ccVersion) ${node_type} software:\n\
 "
-		echo /var/cc-ovf/bin/install ${node_type} 2>&1 | sed -e 's#^#  #'
-		printf "  ";for i in {1..5}; do (sleep 1;printf ".");done;printf "\n"
-		(/var/cc-ovf/bin/install ${node_type}; echo $? > /tmp/${node_type}.sta) 2>&1 | stdbuf -i0 -o0 -e0 sed -e 's#^#  #'
-		sta=$(cat /tmp/${node_type}.sta)
-		if [ $sta -ne 0 ]; then
-		    err "ERROR: Installation of ${node_type} failed! Halting ..."
-		    # Close stdout to flush to the log
-		    exec 1>&-
-		    exit 1
-		fi
-	    fi
-	else
-	    version=$(cd /var/extras/binary; find . -name "${node_type}_*_amd64.deb"|tail -1|sed -e 's#^[^_]*_\([^_]*\)_amd64.deb$#\1#')
-	    if [ ! -z ${version} ]; then
-		if [ ! -x /etc/init.d/${node_type} ]; then
-		    if [ $first -ne 0 ]; then
-			if [ 0 -eq 1 ]; then
-			    printf "\n\
+                echo /var/cc-ovf/bin/install ${node_type} 2>&1 | sed -e 's#^#  #'
+                printf "  ";for i in {1..5}; do (sleep 1;printf ".");done;printf "\n"
+                (/var/cc-ovf/bin/install ${node_type}; echo $? > /tmp/${node_type}.sta) 2>&1 | stdbuf -i0 -o0 -e0 sed -e 's#^#  #'
+                sta=$(cat /tmp/${node_type}.sta)
+                if [ $sta -ne 0 ]; then
+                    err "ERROR: Installation of ${node_type} failed! Halting ..."
+                    # Close stdout to flush to the log
+                    exec 1>&-
+                    exit 1
+                fi
+            fi
+        else
+            version=$(cd /var/extras/binary; find . -name "${node_type}_*_amd64.deb"|tail -1|sed -e 's#^[^_]*_\([^_]*\)_amd64.deb$#\1#')
+            if [ ! -z ${version} ]; then
+                if [ ! -x /etc/init.d/${node_type} ]; then
+                    if [ $first -ne 0 ]; then
+                        if [ 0 -eq 1 ]; then
+                            printf "\n\
 ***************************************************************************\n\
 ***************************************************************************\n\
 ***************************************************************************\n\
 \n\
 Ready to install ${node_type}=${version}.\n\
 "
-			    printf "Press <enter> to continue..."
-			    read RESPONSE
-			fi
-		    fi
-		    first=0
-		    printf "\n\
+                            printf "Press <enter> to continue..."
+                            read RESPONSE
+                        fi
+                    fi
+                    first=0
+                    printf "\n\
 ***************************************************************************\n\
 ***************************************************************************\n\
 ***************************************************************************\n\
 \n\
 Installing ${node_type}=${version}:\n\
 "
-		    echo apt-get install ${node_type}=${version} 2>&1 | sed -e 's#^#  #'
-		    printf "  ";for i in {1..5}; do (sleep 1;printf ".");done;printf "\n"
-		    (apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install --force-yes ${node_type}=${version}; echo $? > /tmp/${node_type}.sta) 2>&1 | stdbuf -i0 -o0 -e0 sed -e 's#^#  #'
-		    sta=$(cat /tmp/${node_type}.sta)
-		    if [ $sta -ne 0 ]; then
-			err "ERROR: Installation of ${node_type} failed! Halting ..."
-			# Close stdout to flush to the log
-			exec 1>&-
-			exit 1
-		    fi
-		fi
-	    fi
-	fi
+                    echo apt-get install ${node_type}=${version} 2>&1 | sed -e 's#^#  #'
+                    printf "  ";for i in {1..5}; do (sleep 1;printf ".");done;printf "\n"
+                    (apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install --force-yes ${node_type}=${version}; echo $? > /tmp/${node_type}.sta) 2>&1 | stdbuf -i0 -o0 -e0 sed -e 's#^#  #'
+                    sta=$(cat /tmp/${node_type}.sta)
+                    if [ $sta -ne 0 ]; then
+                        err "ERROR: Installation of ${node_type} failed! Halting ..."
+                        # Close stdout to flush to the log
+                        exec 1>&-
+                        exit 1
+                    fi
+                fi
+            fi
+        fi
     done
+
+    if [ -d /var/extras/licensing ]; then
+        if [ -x /var/extras/licensing/inst ]; then
+            printf "\n\
+***************************************************************************\n\
+***************************************************************************\n\
+***************************************************************************\n\
+\n\
+Installing licensing support:\n\
+"
+            echo /var/extras/licensing/inst 2>&1 | sed -e 's#^#  #'
+            /var/extras/licensing/inst 2>&1 | sed -e 's#^#  #'
+        fi
+    fi
 
     cp -vp /etc/apt/sources.list.bak /etc/apt/sources.list 2>&1 | sed -e 's#^#  #'
 
@@ -166,20 +180,20 @@ Limiting the size of logs and dumps directory:\n\
     /usr/bin/clearwater-limitdir /var/log -l 2G -y 2>&1 | sed -e 's#^#  #'
 
     if [ $first -eq 0 ]; then
-	printf "\n\
+        printf "\n\
 ***************************************************************************\n\
 ***************************************************************************\n\
 ***************************************************************************\n\
 \n\
 Finishing ${node_types} install."
-	for i in {1..10}; do (sleep 1;sync;printf ".");done
-	printf "Done.\n"
-	printf "\nYou can either power down the machine now OR\nPress <enter> to reboot and continue configuration..."
-	read RESPONSE
-	rm -f /boot/grub/grubenv
-	printf "\nRebooting."
-	for i in {1..5}; do (sleep 1;sync;printf ".");done
-	reboot -f
+        for i in {1..10}; do (sleep 1;sync;printf ".");done
+        printf "Done.\n"
+        printf "\nYou can either power down the machine now OR\nPress <enter> to reboot and continue configuration..."
+        read RESPONSE
+        rm -f /boot/grub/grubenv
+        printf "\nRebooting."
+        for i in {1..5}; do (sleep 1;sync;printf ".");done
+        reboot -f
     fi
 fi
 

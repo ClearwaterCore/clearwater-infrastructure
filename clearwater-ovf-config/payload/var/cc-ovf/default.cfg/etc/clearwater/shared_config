@@ -88,6 +88,6 @@ enum_server=$(dig +noall +answer enum.${home_domain} 2>&1 | awk '{print $5}')
 
 ###############################################################################
 #
-# ADD NON-GENERIC CLEARWATER CONFIGURATION SETTINGS BELOW
+# ADD NON-GENERIC SHARED CLEARWATER CONFIGURATION SETTINGS BELOW
 #
 #vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv

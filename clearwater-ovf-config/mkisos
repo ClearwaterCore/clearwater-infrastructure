@@ -54,18 +54,18 @@ unset params
 while true
 do
     case $1 in
-	-r | --redo-deps)
-	export "redo_deps=1"
-	shift 1
-	;;
-	--iso-types)
-	export "iso_types=${2-}"
-	shift 2
-	;;
-	--start-iso)
-	export "start_iso=${2-}"
-	shift 2
-	;;
+        -r | --redo-deps)
+        export "redo_deps=1"
+        shift 1
+        ;;
+        --iso-types)
+        export "iso_types=${2-}"
+        shift 2
+        ;;
+        --start-iso)
+        export "start_iso=${2-}"
+        shift 2
+        ;;
         --)
         shift
         break
@@ -111,45 +111,45 @@ if [ "$(cd ${build_base}/REPO/binary; find . -name 'metaswitch-core-sprout_*.ins
     install_ver=1
     let "cmd_done=0"
     while [ $cmd_done -eq 0 ]; do
-	let "prompt_done=0"
-	while [ $prompt_done -eq 0 ]; do
-	    printf "\nPlease choose one of the following:\n\n"
-	    let i=1
-	    for ver in ${avail_vers[@]}; do
-		printf "  $i: $ver\n"
-		let "i=$i + 1"
-	    done
-	    doPrompt "Pick a version" "" "$install_ver"
-	    if [[ "$RESPONSE" =~ ^[0-9]+$ ]]; then
-		if [[ "$RESPONSE" -gt 0 && "$RESPONSE" -le ${#avail_vers[@]} ]]; then
-		    let "prompt_done=1"
-		else
-		    printf "[YOUR INPUT WAS NOT UNDERSTOOD]\n"
-		fi
-	    else
-		printf "[YOUR INPUT WAS NOT UNDERSTOOD]\n"
-	    fi
-	done
+        let "prompt_done=0"
+        while [ $prompt_done -eq 0 ]; do
+            printf "\nPlease choose one of the following:\n\n"
+            let i=1
+            for ver in ${avail_vers[@]}; do
+                printf "  $i: $ver\n"
+                let "i=$i + 1"
+            done
+            doPrompt "Pick a version" "" "$install_ver"
+            if [[ "$RESPONSE" =~ ^[0-9]+$ ]]; then
+                if [[ "$RESPONSE" -gt 0 && "$RESPONSE" -le ${#avail_vers[@]} ]]; then
+                    let "prompt_done=1"
+                else
+                    printf "[YOUR INPUT WAS NOT UNDERSTOOD]\n"
+                fi
+            else
+                printf "[YOUR INPUT WAS NOT UNDERSTOOD]\n"
+            fi
+        done
         install_ver=$RESPONSE
 
-	doConfirm
-	cfrm=$?
-	if [ $cfrm -eq 1 ]; then
-	    let "cmd_done=1"
-	fi
-	if [ $cfrm -eq 2 ]; then
-	    printf "cancelled by user\n"
-	    let "cmd_done=1"
-	    exit 1
-	fi
+        doConfirm
+        cfrm=$?
+        if [ $cfrm -eq 1 ]; then
+            let "cmd_done=1"
+        fi
+        if [ $cfrm -eq 2 ]; then
+            printf "cancelled by user\n"
+            let "cmd_done=1"
+            exit 1
+        fi
     done
 
     ccVersion=${avail_vers[$install_ver]}
 else
     ccVersion=$(cd ${build_base}/REPO/binary; find . -name 'metaswitch-core*.install'|tail -1|sed -e 's#^[^_]*_\([^_]*\)_all.install$#\1#')
     if [ -z "${ccVersion}" ]; then
-	printf "ERROR: couldn't determine CC version!\n"
-	exit 1
+        printf "ERROR: couldn't determine CC version!\n"
+        exit 1
     fi
 fi
 
@@ -165,8 +165,8 @@ if [ ! -r ${mydir}/$(basename ${start_iso}) ]; then
     printf "Fetching start ISO (${start_iso})...\n"
     (cd ${mydir}; wget --progress=dot:mega ${start_iso}) 2>&1 | sed -e 's#^#  #'
     if [ $? -ne 0 ]; then
-	printf "ERROR: couldn't retreive ${start_iso}!\n"
-	exit 1
+        printf "ERROR: couldn't retreive ${start_iso}!\n"
+        exit 1
     fi
 fi
 
@@ -177,19 +177,19 @@ fi
 if [ ! -d ${mydir}/$(basename -s .iso ${start_iso}) ]; then
     printf "Extracting start ISO...\n"
     (
-	echo mkdir -p ${mydir}/$(basename -s .iso ${start_iso}).mnt ${mydir}/$(basename -s .iso ${start_iso})
-	mkdir -p ${mydir}/$(basename -s .iso ${start_iso}).mnt ${mydir}/$(basename -s .iso ${start_iso})
-	echo mount -o loop ${mydir}/$(basename ${start_iso}) ${mydir}/$(basename -s .iso ${start_iso}).mnt
-	mount -o loop ${mydir}/$(basename ${start_iso}) ${mydir}/$(basename -s .iso ${start_iso}).mnt
-	echo cp -rT ${mydir}/$(basename -s .iso ${start_iso}).mnt ${mydir}/$(basename -s .iso ${start_iso})
-	cp -rT ${mydir}/$(basename -s .iso ${start_iso}).mnt ${mydir}/$(basename -s .iso ${start_iso})
-	while [ "$(ls -l ${mydir}/$(basename -s .iso ${start_iso}).mnt)" != "total 0" ]; do
-	    echo umount -l ${mydir}/$(basename -s .iso ${start_iso}).mnt
-	    umount -l ${mydir}/$(basename -s .iso ${start_iso}).mnt
-	    sleep 5
-	done
-	echo rmdir ${mydir}/$(basename -s .iso ${start_iso}).mnt
-	rmdir ${mydir}/$(basename -s .iso ${start_iso}).mnt
+        echo mkdir -p ${mydir}/$(basename -s .iso ${start_iso}).mnt ${mydir}/$(basename -s .iso ${start_iso})
+        mkdir -p ${mydir}/$(basename -s .iso ${start_iso}).mnt ${mydir}/$(basename -s .iso ${start_iso})
+        echo mount -o loop ${mydir}/$(basename ${start_iso}) ${mydir}/$(basename -s .iso ${start_iso}).mnt
+        mount -o loop ${mydir}/$(basename ${start_iso}) ${mydir}/$(basename -s .iso ${start_iso}).mnt
+        echo cp -rT ${mydir}/$(basename -s .iso ${start_iso}).mnt ${mydir}/$(basename -s .iso ${start_iso})
+        cp -rT ${mydir}/$(basename -s .iso ${start_iso}).mnt ${mydir}/$(basename -s .iso ${start_iso})
+        while [ "$(ls -l ${mydir}/$(basename -s .iso ${start_iso}).mnt)" != "total 0" ]; do
+            echo umount -l ${mydir}/$(basename -s .iso ${start_iso}).mnt
+            umount -l ${mydir}/$(basename -s .iso ${start_iso}).mnt
+            sleep 5
+        done
+        echo rmdir ${mydir}/$(basename -s .iso ${start_iso}).mnt
+        rmdir ${mydir}/$(basename -s .iso ${start_iso}).mnt
     ) 2>&1 | sed 's#^#  #'
 fi
 
@@ -229,7 +229,9 @@ asr-manpages \
 dnsmasq \
 bc \
 strace \
-snmp
+snmp \
+libc6 \
+libc6-i386
 "
 
 if [[ ! -e ${mydir}/extras && -d ${mydir}/../../../extras ]]; then
@@ -242,93 +244,93 @@ if [[ ! -r ${mydir}/extras/binary/Packages || $redo_deps -ne 0 ]]; then
     # We need to get all these packages so that we can install Clearwater Core
     # without an Internet connection
     ext=(
-	libboost-regex1.54.0
-	libboost-system1.54.0
-	libboost-thread1.54.0
-	libboost-filesystem1.54.0
-	libboost-program-options1.54.0
-	cassandra
-	libsnmp30
-	python-dev
-	python-pip
-	libffi-dev
-	libssl-dev
-	openjdk-7-jre-headless
-	libcurl3-gnutls
-	cpulimit
-	libc-ares-dev
-	libboost-program-options-dev
-	libboost-regex-dev
-	libboost-system-dev
-	libboost-filesystem-dev
-	libboost-thread-dev
-	sysv-rc
-	multiarch-support
-	openssl
-	nginx
-	libcurl3
-	logrotate
-	libjemalloc1
-	ucf
-	initscripts
-	zlib1g
-	libuuid1
-	libmongo-client0
-	libjson0
-	libgcrypt11
-	libestr0
-	lsb-base
-	upstart-job
-	libssl1.0.0
-	libpam0g
-	python-zmq
-	python2.7-dev
-	libxslt1-dev
-	libxml2-dev
-	libgmp10
-	python-setuptools
-	python-virtualenv
-	authbind
-	mysql-server
-	adduser
-	dnsmasq
-	gdb
-	libevent-dbg
-	gnutls-bin
-	inotify-tools
-	jsvc
-	libboost-program-options1.46.1
-	libboost-regex1.46.1
-	libboost-system1.46.1
-	libboost-filesystem1.46.1
-	libboost-thread1.46.1
-	libc6
-	libcommons-daemon-java
-	libevent-pthreads-2.0-5
-	libgcc1
-	libjna-java
-	libpgm-5.1-0
-	libsctp1
-	libstdc++6
-	memcached
-	monit
-	ntp
-	openjdk-6-jre-headless
-	python
-	python2.7
-	python-support
-	realpath
-	snmpd
-	sysstat
-	libzmq3
-	libzmq3-dev
-	libevent-2.0-5
-	perl
+        libboost-regex1.54.0
+        libboost-system1.54.0
+        libboost-thread1.54.0
+        libboost-filesystem1.54.0
+        libboost-program-options1.54.0
+        cassandra
+        libsnmp30
+        python-dev
+        python-pip
+        libffi-dev
+        libssl-dev
+        openjdk-7-jre-headless
+        libcurl3-gnutls
+        cpulimit
+        libc-ares-dev
+        libboost-program-options-dev
+        libboost-regex-dev
+        libboost-system-dev
+        libboost-filesystem-dev
+        libboost-thread-dev
+        sysv-rc
+        multiarch-support
+        openssl
+        nginx
+        libcurl3
+        logrotate
+        libjemalloc1
+        ucf
+        initscripts
+        zlib1g
+        libuuid1
+        libmongo-client0
+        libjson0
+        libgcrypt11
+        libestr0
+        lsb-base
+        upstart-job
+        libssl1.0.0
+        libpam0g
+        python-zmq
+        python2.7-dev
+        libxslt1-dev
+        libxml2-dev
+        libgmp10
+        python-setuptools
+        python-virtualenv
+        authbind
+        mysql-server
+        adduser
+        dnsmasq
+        gdb
+        libevent-dbg
+        gnutls-bin
+        inotify-tools
+        jsvc
+        libboost-program-options1.46.1
+        libboost-regex1.46.1
+        libboost-system1.46.1
+        libboost-filesystem1.46.1
+        libboost-thread1.46.1
+        libc6
+        libcommons-daemon-java
+        libevent-pthreads-2.0-5
+        libgcc1
+        libjna-java
+        libpgm-5.1-0
+        libsctp1
+        libstdc++6
+        memcached
+        monit
+        ntp
+        openjdk-6-jre-headless
+        python
+        python2.7
+        python-support
+        realpath
+        snmpd
+        sysstat
+        libzmq3
+        libzmq3-dev
+        libevent-2.0-5
+        perl
     )
 
     cedar=(
-	cedar
-	cedar-ftpd
+        cedar
+        cedar-ftpd
     )
 
     deps=()
@@ -337,81 +339,81 @@ if [[ ! -r ${mydir}/extras/binary/Packages || $redo_deps -ne 0 ]]; then
     
     find_deps()
     {
-	local indent
-	indent=$1
-	shift
-	for pkg in $*; do
-	    printf "$indent$pkg:\n"
-	    local new_deps
-	    new_deps=()
-	    printf "$pkg " >> ${dep_file}
-	    deps=( ${deps[@]} $pkg )
-	    for dep in $(apt-cache depends $pkg 2>&1 | egrep "(Depends:|Recommends:)" |  sed 's/[^:]*://' | sed ':a;N;$!ba;s/\n//g'); do
-		if [[ "$dep" =~ ^\< ]]; then
-		    continue
-		fi
-		found=0
-		for d in ${deps[@]}; do
-		    if [ "$dep" == "$d" ]; then
-			found=1
-			break
-		    fi
-		done
-		if [ $found -eq 0 ]; then
-		    new_deps=( ${new_deps[@]} $dep )
-		    deps=( ${deps[@]} $dep )
-		    printf "$dep " >> ${dep_file}
-		fi
-	    done
+        local indent
+        indent=$1
+        shift
+        for pkg in $*; do
+            printf "$indent$pkg:\n"
+            local new_deps
+            new_deps=()
+            printf "$pkg " >> ${dep_file}
+            deps=( ${deps[@]} $pkg )
+            for dep in $(apt-cache depends $pkg 2>&1 | egrep "(Depends:|Recommends:)" |  sed 's/[^:]*://' | sed ':a;N;$!ba;s/\n//g'); do
+                if [[ "$dep" =~ ^\< ]]; then
+                    continue
+                fi
+                found=0
+                for d in ${deps[@]}; do
+                    if [ "$dep" == "$d" ]; then
+                        found=1
+                        break
+                    fi
+                done
+                if [ $found -eq 0 ]; then
+                    new_deps=( ${new_deps[@]} $dep )
+                    deps=( ${deps[@]} $dep )
+                    printf "$dep " >> ${dep_file}
+                fi
+            done
             find_deps "$indent  " "${new_deps[@]}"
-	done
+        done
     }
 
     (
-	printf "Determining extra packages dependencies...\n"
-	find_deps "" ${install_packages} ${ext[@]} ${cedar[@]} 2>&1 | sed -e 's#^#  #'
+        printf "Determining extra packages dependencies...\n"
+        find_deps "" ${install_packages} ${ext[@]} ${cedar[@]} 2>&1 | sed -e 's#^#  #'
 
-	printf "Extra packages dependencies are:\n"
-	deps=( $(cat $dep_file) )
-	rm -f $dep_file
-	printf "${deps[*]}\n" | sed -e 's#^#  #'
+        printf "Extra packages dependencies are:\n"
+        deps=( $(cat $dep_file) )
+        rm -f $dep_file
+        printf "${deps[*]}\n" | sed -e 's#^#  #'
 
-	printf "Retrieving extras...\n"
-	(
-	    mkdir -p ${mydir}/extras/binary
-	    cd ${mydir}/extras/binary
-	    for pkg in ${deps[@]}; do
-		if [ $(find . -name "${pkg}_*.deb"|wc -l) -eq 0 ]; then
-		    #echo $pkg:
-		    #echo apt-get --print-uris --yes download $pkg
-		    file=$(apt-get --print-uris --yes download $pkg | grep ^\' | cut -d\' -f2)
-		    if [ ! -z $file ]; then
-			echo $file
-			if [ ! -r $(basename $file) ]; then
-			    if [[ "$file" =~ repo.cw-ngv.com ]]; then
-				apt-get --allow-unauthenticated download $(echo $(basename "$file")|sed -e 's#\([^_]*\)_\([^_]*\)_.*#\1=\2#')
-			    else
-				wget --no-check-certificate --progress=dot:mega $file 2>&1 | sed -e 's#^#  #'
-				if [ $? -ne 0 ]; then
-				    printf "***WTF***\n" 2>&1 | sed -e 's#^#  #'
-				fi
-			    fi
-			else
-			    printf "+"  2>&1 | sed -e 's#^#  #'
-			fi
-		    else
-			printf "@$pkg"
-		    fi
-		else
-		    printf "*$pkg\n"
-		fi
-	    done
+        printf "Retrieving extras...\n"
+        (
+            mkdir -p ${mydir}/extras/binary
+            cd ${mydir}/extras/binary
+            for pkg in ${deps[@]}; do
+                if [ $(find . -name "${pkg}_*.deb"|wc -l) -eq 0 ]; then
+                    #echo $pkg:
+                    #echo apt-get --print-uris --yes download $pkg
+                    file=$(apt-get --print-uris --yes download $pkg | grep ^\' | cut -d\' -f2)
+                    if [ ! -z $file ]; then
+                        echo $file
+                        if [ ! -r $(basename $file) ]; then
+                            if [[ "$file" =~ repo.cw-ngv.com ]]; then
+                                apt-get --allow-unauthenticated download $(echo $(basename "$file")|sed -e 's#\([^_]*\)_\([^_]*\)_.*#\1=\2#')
+                            else
+                                wget --no-check-certificate --progress=dot:mega $file 2>&1 | sed -e 's#^#  #'
+                                if [ $? -ne 0 ]; then
+                                    printf "***WTF***\n" 2>&1 | sed -e 's#^#  #'
+                                fi
+                            fi
+                        else
+                            printf "+"  2>&1 | sed -e 's#^#  #'
+                        fi
+                    else
+                        printf "@$pkg"
+                    fi
+                else
+                    printf "*$pkg\n"
+                fi
+            done
 
-	    cd ${mydir}/extras
-	    apt-ftparchive packages binary --arch amd64 > binary/Packages
-	    gzip -c ./binary/Packages | tee ./binary/Packages.gz > /dev/null
-	    rm -f ${deb_extras_dir}/binary/Packages
-	) 2>&1 | sed -e 's#^#  #'
+            cd ${mydir}/extras
+            apt-ftparchive packages binary --arch amd64 > binary/Packages
+            gzip -c ./binary/Packages | tee ./binary/Packages.gz > /dev/null
+            rm -f ${deb_extras_dir}/binary/Packages
+        ) 2>&1 | sed -e 's#^#  #'
     )
 fi
 
@@ -419,8 +421,10 @@ if [ ! -r ${deb_extras_dir}/binary/Packages ]; then
     printf "Copying extras to ISO...\n"
     rm -rf ${deb_extras_dir}
     mkdir -p ${deb_extras_dir}
-    cp -vpr ${mydir}/extras/binary ${deb_extras_dir} 2>&1  | sed -e 's#[^/]*\(/.*\) ->.*#\1#'|sed -e 's#[.]deb.$#.deb#' |sed -e 's#^#  #'
+    cp -vpr ${mydir}/extras/* ${deb_extras_dir} 2>&1  | sed -e 's#[^/]*\(/.*\) ->.*#\1#'|sed -e 's#[.]deb.$#.deb#' |sed -e 's#^#  #'
 fi
+rm -rvf ${deb_extras_dir}/licensing 2>&1  | sed -e 's#[^/]*\(/.*\) ->.*#\1#'|sed -e 's#[.]deb.$#.deb#' |sed -e 's#^#  #'
+cp -vpr ${mydir}/licensing ${deb_extras_dir} 2>&1  | sed -e 's#[^/]*\(/.*\) ->.*#\1#'|sed -e 's#[.]deb.$#.deb#' |sed -e 's#^#  #'
 
 ccServiceUpdate=$(echo ${ccVersion}|sed -e 's#^[^-]*-\([^-]*\)-.*$#\1#')
 ccMajor=$(echo ${ccVersion}|sed -e 's#^\([^.]*\)[.].*$#\1#')
@@ -435,49 +439,49 @@ for iso_type in "${iso_types[@]}"; do
     rm -rf ${mydir}/$(basename -s .iso ${start_iso})/CCREPO ${mydir}/$(basename -s .iso ${start_iso})/cfg-payload.tgz
 
     if [ "$iso_type" == "cc-cots" ]; then
-	iso_title="Install CC-COTS-${ccVersion} [Ubuntu 14.04.2]"
-	iso_dist="CC-COTS-${ccVersion}"
-	part_manually=1
-	part_manually=0
-	network_flag=false
-	iso_name=CC-COTS-${ccVersion}
+        iso_title="Install CC-COTS-${ccVersion} [Ubuntu 14.04.2]"
+        iso_dist="CC-COTS-${ccVersion}"
+        part_manually=1
+        part_manually=0
+        network_flag=false
+        iso_name=CC-COTS-${ccVersion}
 
-	(
-	    printf "Creating payload for ${iso_type}...\n"
-	    cd ${mydir}/payload
-	    tar cvzf ${mydir}/$(basename -s .iso ${start_iso})/cfg-payload.tgz . 2>&1 | sed 's#^#  #'
-	)
+        (
+            printf "Creating payload for ${iso_type}...\n"
+            cd ${mydir}/payload
+            tar cvzf ${mydir}/$(basename -s .iso ${start_iso})/cfg-payload.tgz . 2>&1 | sed 's#^#  #'
+        )
 
-	(
-	    mkdir ${mydir}/$(basename -s .iso ${start_iso})/CCREPO
-	    cp -rvp ${build_base}/REPO/binary ${mydir}/$(basename -s .iso ${start_iso})/CCREPO
-	    rm -f ${mydir}/$(basename -s .iso ${start_iso})/CCREPO/binary/Release* ${mydir}/$(basename -s .iso ${start_iso})/CCREPO/binary/Packages*
-	    cd ${mydir}/$(basename -s .iso ${start_iso})/CCREPO
-	    apt-ftparchive packages binary --arch amd64 > binary/Packages
-	)
+        (
+            mkdir ${mydir}/$(basename -s .iso ${start_iso})/CCREPO
+            cp -rvp ${build_base}/REPO/binary ${mydir}/$(basename -s .iso ${start_iso})/CCREPO
+            rm -f ${mydir}/$(basename -s .iso ${start_iso})/CCREPO/binary/Release* ${mydir}/$(basename -s .iso ${start_iso})/CCREPO/binary/Packages*
+            cd ${mydir}/$(basename -s .iso ${start_iso})/CCREPO
+            apt-ftparchive packages binary --arch amd64 > binary/Packages
+        )
 
-	cc_auto_install_nodes="homestead sprout ralf cedar cedar-ftpd"
+        cc_auto_install_nodes="homestead sprout ralf cedar cedar-ftpd"
     else
-	if [ "$iso_type" == "va-base" ]; then
-	    iso_name=ubu14-base-v${ccMajor}-${ccServiceUpdate}
-	else
-	    printf "ERROR: unrecognized ISO type ${iso_type}!\n"
-	    exit 1
-	fi
+        if [ "$iso_type" == "va-base" ]; then
+            iso_name=ubu14-base-v${ccMajor}-${ccServiceUpdate}
+        else
+            printf "ERROR: unrecognized ISO type ${iso_type}!\n"
+            exit 1
+        fi
     fi
 
     if [ $(find ${mydir}/patches -type f|wc -l) -gt 0 ]; then
-	printf "Copy patches to the ISO...\n"
-	cp -rvp ${mydir}/patches ${mydir}/$(basename -s .iso ${start_iso})/ 2>&1 | sed 's#^#  #'
+        printf "Copy patches to the ISO...\n"
+        cp -rvp ${mydir}/patches ${mydir}/$(basename -s .iso ${start_iso})/ 2>&1 | sed 's#^#  #'
     fi
 
     printf "Creating ${iso_type} ISO ${iso_name}:\n"
 
     (
-	cd ${mydir}/$(basename -s .iso ${start_iso})
+        cd ${mydir}/$(basename -s .iso ${start_iso})
 
-	rm -f preseed/ks-CC.cfg
-	cat > preseed/ks-CC.cfg <<EOF
+        rm -f preseed/ks-CC.cfg
+        cat > preseed/ks-CC.cfg <<EOF
 #platform=AMD64 or Intel EM64T
 
 #System language
@@ -599,18 +603,18 @@ if [ "\$BASH_EXECUTION_STRING" == "" ]; then
     export "XAUTHORITY=~\$USER/.Xauthority.\$USER"
     export "CRAFT_USER=\$USER"
     if [ -e ~/.Xauthority ]; then
-	mv ~/.Xauthority ~/.Xauthority.\$USER
+        mv ~/.Xauthority ~/.Xauthority.\$USER
     fi
     SUDO=sudo
     if [ "\$USER" == "root" ]; then
-	SUDO=
+        SUDO=
     fi
     exec \$SUDO bash /var/cc-ovf/configurator/craft.bash
 else
     cmd=\$(echo \$BASH_EXECUTION_STRING|gawk '{print \$1}')
     if [ "\$(basename \$cmd)" == "sftp-server" ]; then
-	cd ftp
- 	/usr/libexec/openssh/sftp-server
+        cd ftp
+        /usr/libexec/openssh/sftp-server
     fi
 fi
 fi
@@ -629,7 +633,9 @@ chown defcraft:defcraft /home/defcraft/.bashrc /home/defcraft/.profile
 set -x
 # Allow unathenticated packages by default
 printf "APT::Get::AllowUnauthenticated \"true\";\n" > /etc/apt/apt.conf.d/99misc
+DEBIAN_FRONTEND=noninteractive dpkg --add-architecture i386
 DEBIAN_FRONTEND=noninteractive apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y libc6-i386
 DEBIAN_FRONTEND=noninteractive apt-get purge apache2 -y
 
 # Allow root log in via ssh
@@ -638,8 +644,8 @@ rm -f /etc/ssh/sshd_confige
 
 # Fixup sudoers
 chmod +w /etc/sudoers
-printf "clearwater	ALL=NOPASSWD: ALL\n" >> /etc/sudoers
-printf "defcraft	ALL=NOPASSWD: ALL\n" >> /etc/sudoers
+printf "clearwater      ALL=NOPASSWD: ALL\n" >> /etc/sudoers
+printf "defcraft        ALL=NOPASSWD: ALL\n" >> /etc/sudoers
 chmod 0440 /etc/sudoers
 
 # Clean up Apt
@@ -679,11 +685,11 @@ update-grub
 
 EOF
 
-	rm -f preseed/CC.seed
-	cat > preseed/CC.seed <<EOF
+        rm -f preseed/CC.seed
+        cat > preseed/CC.seed <<EOF
 # LVM by default.
-#d-i	partman-auto/init_automatically_partition	string some_device_lvm
-#d-i	partman-auto/init_automatically_partition	seen false
+#d-i    partman-auto/init_automatically_partition       string some_device_lvm
+#d-i    partman-auto/init_automatically_partition       seen false
 #Apt
 d-i debian-installer/allow_unauthenticated boolean true
 #d-i apt-setup/restricted boolean false
@@ -698,31 +704,31 @@ d-i debian-installer/allow_unauthenticated boolean true
 #d-i netcfg/dhcp_options select Configure network manually
 d-i netcfg/enable boolean ${network_flag}
 # Install the Ubuntu Server seed.
-tasksel	tasksel/force-tasks	string server
+tasksel tasksel/force-tasks     string server
 # Only install basic language packs. Let tasksel ask about tasks.
-d-i	pkgsel/language-pack-patterns	string
+d-i     pkgsel/language-pack-patterns   string
 # No language support packages.
-d-i	pkgsel/install-language-support	boolean false
+d-i     pkgsel/install-language-support boolean false
 # Only ask the UTC question if there are other operating systems installed.
-d-i	clock-setup/utc-auto	boolean true
+d-i     clock-setup/utc-auto    boolean true
 d-i     clock-setup/utc boolean true
 # Verbose output and no boot splash screen.
-d-i	debian-installer/quiet	boolean false
-d-i	debian-installer/splash	boolean false
+d-i     debian-installer/quiet  boolean false
+d-i     debian-installer/splash boolean false
 # Install the debconf oem-config frontend (if in OEM mode).
-d-i	oem-config-udeb/frontend	string debconf
+d-i     oem-config-udeb/frontend        string debconf
 # Wait for two seconds in grub
-d-i	grub-installer/timeout	string 2
+d-i     grub-installer/timeout  string 2
 # Add the network and tasks oem-config steps by default.
-oem-config	oem-config/steps	multiselect language, timezone, keyboard, user, network, tasks
+oem-config      oem-config/steps        multiselect language, timezone, keyboard, user, network, tasks
 d-i  base-installer/kernel/altmeta   string lts-utopic
 
 d-i time/zone string UTC
 EOF
 
         echo en > isolinux/lang
-	rm -f isolinux/txt.cfg
-	cat > isolinux/txt.cfg <<EOF
+        rm -f isolinux/txt.cfg
+        cat > isolinux/txt.cfg <<EOF
 default installCC
 label installCC
   menu label ^${iso_title}
@@ -748,12 +754,12 @@ label hd
   localboot 0x80
 EOF
 
-	mkdir -p ./dists/stable/main/binary-amd64
-	printf "  Scaning ISO's archive...\n"
-	apt-ftparchive packages ./pool/main/ --arch amd64 2>/dev/null > dists/stable/main/binary-amd64/Packages 2>&1 | sed -e 's#^#    #'
-	gzip -c ./dists/stable/main/binary-amd64/Packages | tee ./dists/stable/main/binary-amd64/Packages.gz > /dev/null
+        mkdir -p ./dists/stable/main/binary-amd64
+        printf "  Scaning ISO's archive...\n"
+        apt-ftparchive packages ./pool/main/ --arch amd64 2>/dev/null > dists/stable/main/binary-amd64/Packages 2>&1 | sed -e 's#^#    #'
+        gzip -c ./dists/stable/main/binary-amd64/Packages | tee ./dists/stable/main/binary-amd64/Packages.gz > /dev/null
 
-	cat > /tmp/$$ <<EOF
+        cat > /tmp/$$ <<EOF
 APT::FTPArchive::Release::Origin "Ubuntu";
 APT::FTPArchive::Release::Label "Ubuntu";
 APT::FTPArchive::Release::Suite "trusty";
@@ -764,11 +770,11 @@ APT::FTPArchive::Release::Components "main restricted";
 APT::FTPArchive::Release::Description "Ubuntu Trusty 14.04 Server";
 EOF
         rm -f dists/trusty/Release dists/trusty/Release.gpg
-	apt-ftparchive release -c /tmp/$$ dists/trusty > dists/trusty/Release
+        apt-ftparchive release -c /tmp/$$ dists/trusty > dists/trusty/Release
 
-	rm -f md5sum.txt
-	printf "  Computing MD5 checksum...\n"
-	md5sum `find ! -name “md5sum.txt” ! -path “./isolinux/*” -follow -type f 2>/dev/null` > md5sum.txt
+        rm -f md5sum.txt
+        printf "  Computing MD5 checksum...\n"
+        md5sum `find ! -name “md5sum.txt” ! -path “./isolinux/*” -follow -type f 2>/dev/null` > md5sum.txt
     )
 
     printf "  Making the ISO file ($(pwd))...\n"
@@ -776,9 +782,9 @@ EOF
 
     printf "  Copying ISO to ESXi host (${ESXi_host})...\n"
     while [ true ]; do
-	(sshpass -p '!bootstrap' scp -q -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p ${ISO_dir}/${iso_name}.iso "${vSphere_user}@${ESXi_host}:/vmfs/volumes/${VM6_datastore}/iso-images"; echo $? > /tmp/mkisos.sta ) 2>&1 | sed -e 's#^#    #'
-	if [ $(cat /tmp/mkisos.sta) -eq 0 ]; then
-	    break
-	fi
+        (sshpass -p '!bootstrap' scp -q -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p ${ISO_dir}/${iso_name}.iso "${vSphere_user}@${ESXi_host}:/vmfs/volumes/${VM6_datastore}/iso-images"; echo $? > /tmp/mkisos.sta ) 2>&1 | sed -e 's#^#    #'
+        if [ $(cat /tmp/mkisos.sta) -eq 0 ]; then
+            break
+        fi
     done
 done
