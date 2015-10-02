@@ -28,6 +28,11 @@ fi
 
 if [ -e /etc/init.d/cedar ]; then
     cedar_hostname=cedar.${home_domain}
+    if [ -e /etc/init.d/sprout ]; then
+	if [ -e /etc/init.d/homestead ]; then
+	    etcd_cluster_key=COTS
+	fi
+    fi
 else
     # Cedar is optional, so check DNS and allow for no cedar(s)
     if [ ! -z "$(dig +noall +answer cedar.${home_domain}|awk '{print $5}')" ]; then
@@ -83,6 +88,6 @@ enum_server=$(dig +noall +answer enum.${home_domain} 2>&1 | awk '{print $5}')
 
 ###############################################################################
 #
-# ADD NON-GENERIC CLEARWATER CONFIGURATION SETTINGS BELOW
+# ADD NON-GENERIC SHARED CLEARWATER CONFIGURATION SETTINGS BELOW
 #
 #vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv

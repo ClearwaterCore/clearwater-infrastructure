@@ -1,6 +1,6 @@
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #
-# WARNING - THIS FILE IS NOT INTENDED TO BE MANUALLY EDITED
+# WARNING - THE TOP PORTION OF THIS FILE NOT INTENDED TO BE MANUALLY EDITED
 #
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 if [ "$(ip netns list)" = "signaling" ]; then 
@@ -61,3 +61,9 @@ if [ -z "$etcd_cluster" ]; then
         awk '{print $5}' ORS=','|sed -e 's#,$##')
 fi
 node_idx=$(/var/cc-ovf/bin/get-var node_idx)
+
+###############################################################################
+#
+# ADD ADDITIONAL LOCAL CLEARWATER CONFIGURATION SETTINGS BELOW
+#
+#vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
