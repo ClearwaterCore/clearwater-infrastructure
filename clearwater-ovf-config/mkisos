@@ -14,6 +14,7 @@ VM6_datastore="54d8cc06-021a3b56-a5f7-ecf4bbd14c88"
 export "redo_deps=0"
 export "iso_types=va-base"
 export "iso_types=va-base:cc-cots"
+export "iso_types=cc-cots"
 start_iso="http://releases.ubuntu.com/14.04.2/ubuntu-14.04.2-server-amd64.iso"
 
 cmdname=$(basename $0)
