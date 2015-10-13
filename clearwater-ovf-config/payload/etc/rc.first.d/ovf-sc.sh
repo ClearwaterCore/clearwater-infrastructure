@@ -653,7 +653,7 @@ if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
     echo_and_run ip netns add signalling 2>&1 | sed -e 's#^#   #'
     echo_and_run ip link set ${sig_nic} netns signalling 2>&1 | sed -e 's#^#   #'
     echo_and_run ip netns exec signalling ifconfig lo up 2>&1 | sed -e 's#^#   #'
-    echo_and_run ip netns exec signalling ifconfig ${sig_nic} netmask ${sig_subnet_mask} ${sig_ip4} up 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns exec signalling ifconfig ${sig_nic} ${sig_ip4} netmask ${sig_subnet_mask} up 2>&1 | sed -e 's#^#   #'
     if [ ! -z "${sig_ip6}" ]; then
         echo_and_run ip netns exec signalling ifconfig eth1 inet6 add ${sig_ip6}/${new_ip6_prefixlen} up 2>&1 | sed -e 's#^#   #'
     fi
