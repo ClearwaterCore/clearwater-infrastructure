@@ -535,7 +535,7 @@ for node_type in "${node_types[@]}"; do
     printf "Set timezone to UTC...\n"
     sta=1
     while [ $sta -ne 0 ]; do
-        (sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} sudo bash -c "echo 'Etc/UTC' > /etc/timezone";sta=$?;echo $sta > /tmp/sta) 2>&1|sed -e 's#^#   #'
+        (sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} 'sudo bash -c "echo Etc/UTC > /etc/timezone"';sta=$?;echo $sta > /tmp/sta) 2>&1|sed -e 's#^#   #'
         sta=$(cat /tmp/sta)
         if [ $sta -ne 0 ]; then
             continue
