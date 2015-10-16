@@ -419,6 +419,11 @@ if [[ ! -r ${mydir}/extras/binary/Packages || $redo_deps -ne 0 ]]; then
 fi
 
 if [ ! -r ${deb_extras_dir}/binary/Packages ]; then
+    (
+        cd ${mydir}/extras
+        apt-ftparchive packages binary --arch amd64 > binary/Packages
+        gzip -c ./binary/Packages | tee ./binary/Packages.gz > /dev/null
+    )
     printf "Copying extras to ISO...\n"
     rm -rf ${deb_extras_dir}
     mkdir -p ${deb_extras_dir}
