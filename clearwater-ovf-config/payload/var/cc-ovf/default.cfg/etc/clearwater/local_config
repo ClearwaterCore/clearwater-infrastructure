@@ -16,17 +16,17 @@ else
     	/run/dnsmasq/resolv.conf | awk '{print $2}'|\
 	sed -e :a -e N -e 's/\n/,/' -e ta)
 fi
-sig_nic=$( $namespace_prefix /sbin/ifconfig -s 2>&1 |grep eth|\
+sig_nic=$( sudo $namespace_prefix /sbin/ifconfig -s 2>&1 |grep eth|\
 	   awk '{print $1}'|head -1)
 mgmt_nic=$( /sbin/ifconfig -s|grep eth|awk '{print $1}'|head -1)
 
 # Local IP configuration. If we have a V6 IP use it, otherwise use the V4
-local_ip4=$( $namespace_prefix ip -4 addr show dev $sig_nic 2>&1 |grep global\
+local_ip4=$( sudo $namespace_prefix ip -4 addr show dev $sig_nic 2>&1 |grep global\
 	     |sed -e 's#^.*inet* \([^/]*\)/.*$#\1#' )
 local_ip=$local_ip4
 public_ip=$local_ip
 if /var/cc-ovf/bin/get-var ip_protocol | egrep -q "^[iI][pP][vV]6$"; then
-    local_ip6=$( $namespace_prefix ip -6 addr show dev $sig_nic 2>&1 |\
+    local_ip6=$( sudo $namespace_prefix ip -6 addr show dev $sig_nic 2>&1 |\
     	grep global|sed -e 's#^.*inet6* \([^/]*\)/.*$#\1#' )
     local_ip=$local_ip6
 fi
