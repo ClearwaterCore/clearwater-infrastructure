@@ -7,10 +7,6 @@
 
 If this node is a founding member, set this to the nodes that will form the initial cluster.</Description>
       </Property>
-      <Property ovf:key="node_idx" ovf:type="string" ovf:userConfigurable="true">
-        <Label>node_idx</Label>
-        <Description>An index number used to distinguish this node from others of the same type in the cluster (for example, sprout-1 and sprout-2). Optional.</Description>
-      </Property>
 
 
       <Category>Payload Config</Category>
