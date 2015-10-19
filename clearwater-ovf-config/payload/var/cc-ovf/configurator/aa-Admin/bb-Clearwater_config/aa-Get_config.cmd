@@ -16,7 +16,6 @@ printf "\
 Variable         Value\n\
 ---------------- --------------------------\n\
 etcd_cluster     ${etcd_cluster}\n\
-node_idx         ${node_idx}\n\
 local_site_name  ${local_site_name}\n\
 remote_site_name ${remote_site_name}\n
 "

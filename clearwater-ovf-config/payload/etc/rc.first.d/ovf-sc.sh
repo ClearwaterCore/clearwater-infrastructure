@@ -986,7 +986,6 @@ else
 fi
 vars[mgmt_ip]=${mgmt_ip}
 vars[etcd_cluster]=${etcd_cluster}
-vars[node_idx]=${node_idx}
 vars[local_site_name]=${local_site_name}
 vars[remote_site_name]=${remote_site_name}
 vars[mgmt_protocol]=${mgmt_protocol}

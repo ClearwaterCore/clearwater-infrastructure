@@ -60,7 +60,6 @@ if [ -z "$etcd_cluster" ]; then
     etcd_cluster=$(dig +noall +answer etcd-cluster.${home_domain}|\
         awk '{print $5}' ORS=','|sed -e 's#,$##')
 fi
-node_idx=$(/var/cc-ovf/bin/get-var node_idx)
 
 ###############################################################################
 #
