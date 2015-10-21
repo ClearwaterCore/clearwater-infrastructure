@@ -46,7 +46,7 @@ If this node is a founding member, set this to the nodes that will form the init
       <Category>Management IPv4 Config</Category>
       <Property ovf:key="mgmt_routers" ovf:type="string" ovf:userConfigurable="true">
         <Label>mgmt_routers</Label>
-        <Description>The routers associated with the management interface.</Description>
+        <Description>The routers (e.g. default gateway) associated with the management interface.</Description>
       </Property>
       <Category>Management IPv4 Config</Category>
       <Property ovf:key="mgmt_domain_name_servers" ovf:type="string" ovf:userConfigurable="true">
@@ -115,7 +115,7 @@ If this node is a founding member, set this to the nodes that will form the init
       <Category>Signaling IPv4 Config</Category>
       <Property ovf:key="sig_routers" ovf:type="string" ovf:userConfigurable="true">
         <Label>sig_routers</Label>
-        <Description>The routers associated with the signaling interface.</Description>
+        <Description>The routers (e.g. default gateway) associated with the signaling interface.</Description>
       </Property>
       <Category>Signaling IPv4 Config</Category>
       <Property ovf:key="sig_domain_name_servers" ovf:type="string" ovf:userConfigurable="true">
