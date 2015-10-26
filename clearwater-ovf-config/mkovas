@@ -525,7 +525,7 @@ for node_type in "${node_types[@]}"; do
     printf "Reset to default config files...\n"
     sta=1
     while [ $sta -ne 0 ]; do
-        (sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} cd /var/cc-ovf/default.cfg\;cp -rvp . /\;rm -vfr /var/lib/cassandra/\* /var/lib/clearwater-etcd/\* /var/lib/monit/\*;sta=$?;echo $sta > /tmp/sta) 2>&1|sed -e 's#^#   #'
+        (sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} clearwater-stop\;cd /var/cc-ovf/default.cfg\;cp -rvp . /\;rm -vfr /var/lib/cassandra/\* /var/lib/clearwater-etcd/\* /var/lib/monit/state;sta=$?;echo $sta > /tmp/sta) 2>&1|sed -e 's#^#   #'
         sta=$(cat /tmp/sta)
         if [ $sta -ne 0 ]; then
             continue
