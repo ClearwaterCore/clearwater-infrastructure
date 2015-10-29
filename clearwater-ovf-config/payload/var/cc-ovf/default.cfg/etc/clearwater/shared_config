@@ -64,7 +64,7 @@ if [ ! -e /etc/init.d/homestead-prov ]; then
     hss_reregistration_time=1800
     hss_mar_lowercase_unknown=Y
 else
-    hs_provisioning_hostname=homestead.${home_domain}:8889
+    hs_provisioning_hostname=$(. /etc/clearwater/local_config; echo ${management_local_ip}):8889
 fi
 
 # SAS configuration
