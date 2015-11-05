@@ -1,0 +1,14 @@
+#!/bin/bash
+
+cp -p /etc/apt/sources.list /etc/apt/sources.list.bak
+
+printf "deb file:$(cd $(dirname $0)/..;pwd) binary/\n" > /etc/apt/sources.list
+if [ -d /var/extras/binary ]; then
+    printf "deb file:/var/extras binary/\n" >>/etc/apt/sources.list
+fi
+
+(
+    cd $(dirname $0)/../default.cfg
+    cp -rvp . /
+)
+

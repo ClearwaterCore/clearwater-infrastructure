@@ -1,0 +1,18 @@
+#!/bin/bash
+
+mydir=$(cd `dirname $0`;pwd)
+cwd=$(pwd)
+
+dpkg -i ${mydir}/aksusbd_7.40-1_i386.deb
+cp -fvp ${mydir}/haspvlib_105288.so /var/hasplm/
+mkdir -p /var/hasplm/installed
+cp -fvp ${mydir}/BareEnvelope.v2c /var/hasplm/installed
+cp -fvp ${mydir}/tokenmon_e /usr/bin
+mkdir -p /etc/opt/MetaSwitch/Licensing/Private
+cp -fvp ${mydir}/*.conf /etc/init
+
+service aksusbd restart
+stop clearwater-tokenmon
+start clearwater-tokenmon
+stop clearwater-tokennet
+start clearwater-tokennet

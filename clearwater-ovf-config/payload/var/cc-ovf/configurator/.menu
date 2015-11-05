@@ -1,0 +1,18 @@
+#!/bin/bash
+if [ -s /var/lib/cc-ovf/configurator.vars ]; then
+    cp -p /var/lib/cc-ovf/configurator.vars /var/lib/cc-ovf/configurator.wip
+fi
+if [ -s /var/lib/cc-ovf/configurator.wip ]; then
+    . /var/lib/cc-ovf/configurator.wip
+fi
+if [ -z ${sig_mac_address} ]; then
+    sig_nic_mac=$(ip addr show dev eth1 2>&1 |grep link/ether|awk '{print $2}')
+    if [ -z ${sig_nic_mac} ]; then
+        sig_nic_mac=$(ip addr show dev eth0 2>&1 |grep link/ether|awk '{print $2}')
+    fi	
+    printf "sig_mac_address=\"${sig_nic_mac}\"\n" >> /var/lib/cc-ovf/configurator.wip
+fi
+if [ -z ${mgmt_mac_address} ]; then
+    mgmt_nic_mac=$(ip addr show dev eth0|grep link/ether|awk '{print $2}')
+    printf "mgmt_mac_address=\"${mgmt_nic_mac}\"\n" >> /var/lib/cc-ovf/configurator.wip
+fi

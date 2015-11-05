@@ -1,0 +1,20 @@
+#!/bin/bash
+ME=`echo $0|tr '\\\\' '/'|sed -e 's#\([A-Za-z]\):#/\1#'`
+MEDIR=`dirname ${ME}`
+MYDIR=`cd $MEDIR;pwd`
+
+if [ -s /var/lib/cc-ovf/configurator.wip ]; then
+    . /var/lib/cc-ovf/configurator.wip
+    if [[ -z "${sig_mac_address}" || -z "${mgmt_mac_address}" ]]; then
+	printf "Error: signaling and management MAC addresses must be configured!\n"
+	exit 1
+    fi
+else
+    printf "Error: nothing configured!\n"
+    exit 1
+fi
+
+rm -f /var/lib/cc-ovf/configurator.vars
+mv /var/lib/cc-ovf/configurator.wip /var/lib/cc-ovf/configurator.vars
+
+exit 0

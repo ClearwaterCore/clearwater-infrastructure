@@ -1,0 +1,12 @@
+#!/bin/bash
+
+
+cp -rvp $(dirname $0)/../default.cfg/* /
+
+rm -rvf /var/lib/cc-ovf/* /var/log/ovf-sc.*log /var/lib/dhcp/* /var/lib/clearwater-etcd/* /var/lib/cassandra/* /var/lib/monit/*
+
+if [ -r /var/tmp/ovf.clearwater.tgz ]; then
+    tar xvzf /var/tmp/ovf.clearwater.tgz -C /
+fi
+
+sync

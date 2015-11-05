@@ -1,0 +1,400 @@
+#!/bin/bash
+
+#if [ -e /usr/bin/sudo ]; then
+#    export "SUDO=sudo"
+#fi
+if [ "$2" == "" ]; then
+    if [ "$BATCHPATH" != "" ]; then
+	MYDIR=`cd $BATCHPATH;pwd`
+    fi
+fi
+
+ME=`echo $0|tr '\\\\' '/'|sed -e 's#\([A-Za-z]\):#/\1#'`
+MEDIR=`dirname ${ME}`
+if [ "$MYDIR" == "" ];then
+    MYDIR=`cd $MEDIR;pwd`
+fi
+
+if [ "$HOME" == "" ]; then
+    HOME=$MYDIR
+fi
+#echo "MEDIR=$MEDIR"
+#echo "MYDIR=$MYDIR"
+
+#(cd $MYDIR;pwd)
+
+# Uncomment the following when done testing
+#trap "echo" SIGINT SIGQUIT SIGKILL SIGSTOP SIGTSTP SIGCHLD
+#trap "" SIGTERM
+
+#echo '0 ${#INPUT_stack[*]}=' ${#INPUT_stack[*]}
+#echo '0 ${INPUT_stack[*]}=' ${INPUT_stack[*]}
+
+present_menu()
+{
+    if [ -x $2/.menu ]; then
+	$2/.menu
+    fi
+    INPUT_stack=($1)
+    export INPUT_stack
+    #echo '1 $1=' "\"$1\""
+    #echo '1 ${#INPUT_stack[*]}=' ${#INPUT_stack[*]}
+    #echo '1 ${INPUT_stack[*]}=' ${INPUT_stack[*]}
+    shift
+    local let "done=0"
+    local let "needs_header=1"
+    if [ -z $BATCHPATH ] && [ "$CRAFT_USER" != "root" ] && [ $(id -u) -ne 0 ]; then
+	if [ "$CRAFT_USER" == "defcraft" ]; then
+            user_prot="cc_read cc_write cc_create cc_admin cc_debug"
+	else
+            user_prot=`id -nG $CRAFT_USER`
+	fi
+    else
+	user_prot="cc_read cc_write cc_create cc_admin cc_debug"
+    fi
+
+    menu_path="$3"
+
+    while [ $done -ne 1 ]; do
+	if [ $needs_header -ne 0 ]; then
+	    if [ -s /var/lib/cc-ovf/configurator.vars ]; then
+		printf "%-20.20s%58s\nConfigured\n[%s] [=%s]\n" "`hostname`" "`date +'%d-%b-%Y %H:%M:%S %z'`" "$2" "$3"
+	    else
+		if [ -s /var/lib/cc-ovf/configurator.wip ]; then
+		    printf "%-20.20s%58s\nConfiguring\n[%s] [=%s]\n" "`hostname`" "`date +'%d-%b-%Y %H:%M:%S %z'`" "$2" "$3"
+		else
+		    printf "%-20.20s%58s\nNot configured\n[%s] [=%s]\n" "`hostname`" "`date +'%d-%b-%Y %H:%M:%S %z'`" "$2" "$3"
+		fi
+	    fi
+            let "needs_header=0"
+	fi
+	if [ -e $1/.help ]; then
+            m_help=`head -1 $1/.help`
+	else
+            m_help="Select a command group or command"
+	fi
+	m_help=`echo "$m_help"|sed -e 's#^[     ]*##'|sed -e 's#[   ]*$##'`
+	if [ "$m_help" == "" ]; then
+            m_help="Select a command group or command"
+	fi
+
+	printf "  %s\n  %s\n" "$m_help" "Press ENTER to refresh"
+	if [ "$2" != "Main" ]; then
+            printf "%2d   %-26s < %s\n" 0 "Back" "Back to previous menu"
+	else
+            printf "%2d   %-26s < %s\n" 0 "Exit" "Log off the craft menu"
+	fi
+
+	local let "min_no=0"
+	local let "max_no=0"
+	local let "m80_no=0"
+	local let "always_allow=1"
+	local m_items=()
+	local m_titles=()
+	local m_helps=()
+	local m_prots=()
+	local m_allows=()
+	for file in `find $1 -mindepth 1 -maxdepth 1 -follow -name '[0-9a-zA-Z][0-9a-zA-Z]-*'|sed -e "s#$1/##"|sort`; do
+            ext=`basename $file|gawk -F. '{print $2}'`
+            file=`basename $file|gawk -F. '{print $1}'`
+            if [ "$ext" == "" ] || [ "$ext" == "bash" ] || [ "$ext" == "cmd" ]; then
+		m80_title=`echo $file|gawk -F- '{print $2}'|sed -e 's#_# #g'`
+		if [ -d $1/$file ]; then
+		    let "m80_no=$m80_no + 1"
+		    if [ -e $1/$file/.help ]; then
+			m80_help=`head -1 $1/$file/.help`
+		    else
+			m80_help="??? no .help ???"
+		    fi
+		    m80_help=`echo "$m80_help"|sed -e 's#^[     ]*##'|sed -e 's#[   ]*$##'`
+		    if [ "$m80_help" == "" ]; then
+			m80_help="??? no/empty .help ???"
+		    fi
+		    if [ $m80_no -gt $max_no ]; then
+			max_no=$m80_no
+		    fi
+		    printf "%2d   %-26s > %s\n" "$m80_no" "$m80_title" "$m80_help"
+
+		    m_items[$m80_no]=$1/$file
+		    m_titles[$m80_no]=$m80_title
+		    m_helps[$m80_no]=$m80_help
+		    m_allows[$m80_no]=1
+		else
+		    if [ -x $1/$file.bash ]; then
+			let "m80_no=$m80_no + 1"
+			if [ -e $1/$file.help ]; then
+			    m80_help=`head -1 $1/$file.help`
+			else
+			    m80_help=`grep '^#?' $1/$file.bash|sed -e 's/^#[?][     ]*//'`
+			    if [ "$m80_help" == "" ]; then
+				m80_help="??? no help for $file ???"
+			    fi
+			fi
+			m80_help=`echo "$m80_help"|sed -e 's#^[     ]*##'|sed -e 's#[   ]*$##'`
+			if [ "$m80_help" == "" ]; then
+			    m80_help="??? no/empty $1/$file.help ???"
+			fi
+			if [ $m80_no -gt $max_no ]; then
+			    max_no=$m80_no
+			fi
+
+			m80_prot=`grep '^#+' $1/$file.bash|sed -e 's/^#[+][     ]*//'`
+
+			let "m80_allowed=1"
+			for prot in $m80_prot; do
+			    echo $user_prot|grep -q $prot
+			    if [ $? -ne 0 ]; then
+				let "m80_allowed=0"
+			    fi
+			done
+
+			if [ $m80_allowed -ne 0 ] || [ $always_allow -ne 0 ]; then
+			    printf "%2d   %-26s   %s\n" "$m80_no" "$m80_title" "$m80_help"
+
+			    m_items[$m80_no]=$1/$file.bash
+			    m_titles[$m80_no]=$m80_title
+			    m_helps[$m80_no]=$m80_help
+			    m_prots[$m80_no]=$m80_prot
+			    m_allows[$m80_no]=$m80_allowed
+			else
+			    let "m80_no=$m80_no - 1"
+			fi
+		    else
+			if [ -x $1/$file.cmd ]; then
+			    let "m80_no=$m80_no + 1"
+			    if [ -e $1/$file.help ]; then
+				m80_help=`head -1 $1/$file.help`
+			    else
+				m80_help=`grep '^#?' $1/$file.cmd|sed -e 's/^#[?][  ]*//'`
+				if [ "$m80_help" == "" ]; then
+				    m80_help="??? no help for $file ???"
+				fi
+			    fi
+			    m80_help=`echo "$m80_help"|sed -e 's#^[     ]*##'|sed -e 's#[   ]*$##'`
+			    if [ "$m80_help" == "" ]; then
+				m80_help="??? no/empty $1/$file.help ???"
+			    fi
+			    if [ $m80_no -gt $max_no ]; then
+				max_no=$m80_no
+			    fi
+
+			    m80_prot=`grep '^#+' $1/$file.cmd|sed -e 's/^#[+][  ]*//'`
+			    let "m80_allowed=1"
+			    for prot in $m80_prot; do
+				echo $user_prot|grep -q $prot
+				if [ $? -ne 0 ]; then
+				    let "m80_allowed=0"
+				fi
+			    done
+
+			    if [ $m80_allowed -ne 0 ] || [ $always_allow -ne 0 ]; then
+				printf "%2d   %-26s   %s\n" "$m80_no" "$m80_title" "$m80_help"
+
+				m_items[$m80_no]=$1/$file.cmd
+				m_titles[$m80_no]=$m80_title
+				m_helps[$m80_no]=$m80_help
+				m_prots[$m80_no]=$m80_prot
+				m_allows[$m80_no]=$m80_allowed
+			    else
+				let "m80_no=$m80_no - 1"
+			    fi
+			fi
+		    fi
+		fi
+            fi
+	done
+
+	#   echo "m_items=" ${m_items[*]}
+	#   echo "m_titles=" ${m_titles[*]}
+	#   echo "min_no=" $min_no "max_no=" $max_no
+	#   echo "#INPUT_stack=${#INPUT_stack[*]}"
+
+	printf ": "
+	if [ ${#INPUT_stack[*]} -eq 0 ]; then
+            read INPUT
+            INPUT_stack=($INPUT)
+	fi
+	INPUT=${INPUT_stack[0]}
+	while [ "$INPUT" == "=" ]; do
+            if [ "$2" == "Main" ]; then
+		INPUT_stack=(${INPUT_stack[@]:1})
+		INPUT=${INPUT_stack[0]}
+            else
+		return
+            fi
+	done
+	INPUT_stack=(${INPUT_stack[@]:1})
+
+	#   echo "INPUT=\"$INPUT\""
+	#   echo "INPUT_stack=\"${INPUT_stack[@]}\""
+	#   echo "#INPUT_stack=${#INPUT_stack[*]}"
+
+	printf "\n-------------------------------------------------------------------------------\n\n"
+
+	if [ "$INPUT" == "" ]; then
+            let "needs_header=1"
+	else
+            INPUT=`echo "$INPUT"|sed -e 's#[    ]*##g'|sed -e 's#[^0-9]##g'`
+            if [ "$INPUT" == "" ]; then
+		printf "[YOUR INPUT WAS NOT UNDERSTOOD]\n"
+            else
+		local let "m_no=$INPUT"
+		if ( (( $m_no < $min_no )) || (( $m_no > $max_no )) ); then
+		    printf "[YOUR INPUT WAS NOT UNDERSTOOD]\n"
+		else
+		    if [ $m_no -ne 0 ]; then
+			#           printf "Execure m_no=%d, file=%s\n" "$m_no" "${m_items[$m_no]}"
+			if [ -d ${m_items[$m_no]} ]; then
+			    if [ -e ${m_items[$m_no]}/.m80 ]; then
+				#echo '2 ${#INPUT_stack[*]}=' ${#INPUT_stack[*]}
+				#echo '2 ${INPUT_stack[*]}=' ${INPUT_stack[*]}
+				#echo bash ${m_items[$m_no]}/.m80 "${INPUT_stack[*]}" "${m_items[$m_no]}" "$2->${m_titles[$m_no]}" "$3 $m_no"
+				rm -f /tmp/IS.$$
+				bash ${m_items[$m_no]}/.m80 "${INPUT_stack[*]}" "${m_items[$m_no]}" "$2->${m_titles[$m_no]}" "$3 $m_no" "/tmp/IS.$$"
+				INPUT_stack=(`cat /tmp/IS.$$`)
+				rm -f /tmp/IS.$$
+				#echo '3 ${#INPUT_stack[*]}=' ${#INPUT_stack[*]}
+				#echo '3 ${INPUT_stack[*]}=' ${INPUT_stack[*]}
+			    else
+				present_menu "${INPUT_stack[*]}" "${m_items[$m_no]}" "$2->${m_titles[$m_no]}" "$3 $m_no"
+			    fi
+			else
+			    m_ext=`basename ${m_items[$m_no]}|gawk -F. '{print $2}'`
+			    if [ -x ${m_items[$m_no]} ] && [ "$m_ext" == "bash" ]; then
+				local confirm_done=0
+				while [ $confirm_done -eq 0 ]; do
+				    printf "%s\n%s\n\n  Please verify that this command is correct\n1   *OK        Execute this command\n2    Cancel    Cancel the operation\n: " "${m_titles[$m_no]}" "${m_helps[$m_no]}"
+				    if [ ${#INPUT_stack[*]} -eq 0 ]; then
+					read INPUT
+					INPUT_stack=($INPUT)
+				    fi
+				    INPUT=${INPUT_stack[0]}
+				    while [ "$INPUT" == "=" ]; do
+					if [ "$2" == "Main" ]; then
+					    INPUT_stack=(${INPUT_stack[@]:1})
+					    INPUT=${INPUT_stack[0]}
+					else
+					    return
+					fi
+				    done
+				    INPUT_stack=(${INPUT_stack[@]:1})
+				    printf "\n-------------------------------------------------------------------------------\n\n"
+				    INPUT=`echo "$INPUT"|sed -e 's#[    ]*##g'|sed -e 's#[^0-9]##g'`
+				    if [ "$INPUT" == "" ]; then
+					let "cm_no=1"
+				    else
+					let "cm_no=$INPUT"
+				    fi
+				    if ( (( $cm_no < 1 )) || (( $cm_no > 2 )) ); then
+					printf "[YOUR INPUT WAS NOT UNDERSTOOD]\n"
+				    else
+					confirm_done=1
+					if [ $cm_no -eq 1 ]; then
+					    if [ ${m_allows[$m_no]} -eq 0 ]; then
+						printf "\nResult: Insufficient privileges to run command.\n"
+						printf "\nPress ENTER to get a list of commands: "
+						read INPUT
+					    else
+						if [ -x ${m_items[$m_no]} ] && [ "$m_ext" == "bash" ]; then
+						    grep -q "^#-\$" ${m_items[$m_no]}
+						    if [ $? == 0 ]; then
+							(bash ${m_items[$m_no]} $MYDIR; echo $? > /var/tmp/$$.sta) 2>&1
+						    else
+							(bash ${m_items[$m_no]} $MYDIR; echo $? > /var/tmp/$$.sta) 2>&1 | tee /var/tmp/$$.out
+						    fi
+						    let "sta=`cat /var/tmp/$$.sta`"
+						    logCmd 0 "=$menu_path $m_no" "${m_titles[$m_no]}" "${m_helps[$m_no]}" "${m_items[$m_no]}" /var/tmp/$$.out
+						    rm -f /var/tmp/$$.out
+						    printf "\nPress ENTER to get a list of commands: "
+						    read INPUT
+						fi
+					    fi
+					fi
+				    fi
+				done
+			    else
+				if [ ${m_allows[$m_no]} -eq 0 ]; then
+				    printf "\nResult: Insufficient privileges to run command.\n"
+				    printf "\nPress ENTER to get a list of commands: "
+				    read input
+				    printf "\n-------------------------------------------------------------------------------\n\n"
+				else
+				    if [ -x ${m_items[$m_no]} ] && [ "$m_ext" == "cmd" ]; then
+					#                   printf "\n-------------------------------------------------------------------------------\n\n"
+					(echo 255 > /var/tmp/$$.sta; bash ${m_items[$m_no]} $MYDIR; echo $? > /var/tmp/$$.sta )2>&1 | tee /var/tmp/$$.out
+					let "sta=`cat /var/tmp/$$.sta`"
+					tail -1 /var/tmp/$$.out|grep -q "Error:"
+					if [ $? -eq 0 ]; then
+					    let "sta=255"
+					fi
+					logCmd $sta "=$menu_path $m_no" "${m_titles[$m_no]}" "${m_helps[$m_no]}" "${m_items[$m_no]}" /var/tmp/$$.out
+					rm -f /var/tmp/$$.out /var/tmp/$$.sta
+					if [ $sta -eq 0 ]; then
+					    printf "\nResult: The command has completed successfully.\n"
+					else
+					    if [ $sta -ne 255 ]; then
+						printf "\nResult: The command failed ($sta).\n"
+					    else
+						if [ $sta -eq 255 ]; then
+						    printf "\nResult: The command was cancelled.\n"
+						fi
+					    fi
+					fi
+					printf "\nPress ENTER to get a list of commands: "
+					read input
+					printf "\n-------------------------------------------------------------------------------\n\n"
+				    fi
+				fi
+			    fi
+			fi
+			let "needs_header=1"
+		    else
+			if [ -x $1/.validate ]; then
+			    ${MYDIR}/.validate
+			    if [ $? -eq 0 ]; then
+				let "done=1"
+			    else
+				printf "\nResult: Validation failed ($?).\n"
+				printf "\nPress ENTER to get a list of commands: "
+				read input
+				printf "\n-------------------------------------------------------------------------------\n\n"
+			    fi
+			else
+			    let "done=1"
+			fi
+		    fi
+		fi
+            fi
+	fi
+    done
+}
+
+#echo . $MYDIR/.env $MYDIR
+. $MYDIR/.env $MYDIR
+
+INPUT_stack=($1)
+HOME_dir=$2
+if [ "$HOME_dir" == "" ]; then
+    HOME_dir=$MYDIR
+fi
+TITLE=$3
+if [ "$TITLE" == "" ]; then
+    TITLE="Main"
+fi
+MENU_hist=$4
+if [ "$MENU_hist" == "" ]; then
+    MENU_hist=""
+fi
+
+IS_repo=$5
+if [ "$IS_repo" == "" ]; then
+    IS_repo=""
+fi
+
+present_menu "${INPUT_stack[*]}" "$HOME_dir" "$TITLE" "$MENU_hist"
+
+if [ ! -z $IS_repo ]; then
+    echo ${INPUT_stack[*]} > $IS_repo
+fi
+
+exit 0
