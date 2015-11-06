@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# This script generates the default certificates. It only needs to be run it changes
+# are made to this script; otherwise everything's already in the git repo.
+
+mydir=$(cd `dirname $0`;pwd)
+cwd=$(pwd)
+
+mkdir -p ${mydir}/install.server/etc/ssl/rsyslog
+
+# Make self-signed CA cert and key
+openssl req -x509 -newkey rsa:2048 -keyout ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-ca.key -out ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-ca.crt -days 9999 -nodes -subj "/CN=rsyslog-server.clearwater.metaswitch.comm"
+chmod 0400 ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-ca.*
+openssl x509 -serial -in ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-ca.crt -noout -text
+
+# Make server csr and key
+openssl req -new -newkey rsa:2048 -keyout ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-server.key -out ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-server.csr -subj "/CN=rsyslog-server.clearwater.metaswitch.comm" -nodes
+chmod 0400 ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-server.key
+
+# Make the server's cert
+openssl x509 -req -days 9999 -in ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-server.csr -CA ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-ca.crt -CAkey ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-ca.key -out ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-server.crt -set_serial 1
+chmod 0400 ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-server.crt
+openssl x509 -serial -in ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-server.crt -noout -text
+
+# Make client csr and key
+openssl req -new -newkey rsa:2048 -keyout ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-client.key -out ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-client.csr -subj "/CN=rsyslog-client.clearwater.metaswitch.com" -nodes
+chmod 0400 ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-client.key
+
+# Make the client's cert
+openssl x509 -req -days 9999 -in ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-client.csr -CA ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-ca.crt -CAkey ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-ca.key -out ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-client.crt -set_serial 2
+chmod 0400 ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-client.crt
+openssl x509 -serial -in ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-client.crt -noout -text
+
+cp -vp ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-client.crt ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-client.key ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-ca.crt ${mydir}/install.client/etc/clearwater/ent
