@@ -32,3 +32,30 @@ chmod 0400 ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-client.crt
 openssl x509 -serial -in ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-client.crt -noout -text
 
 cp -vp ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-client.crt ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-client.key ${mydir}/install.server/etc/ssl/rsyslog/rsyslog-ca.crt ${mydir}/install.client/etc/clearwater/ent
+
+(cd ${mydir}/install.server/; tar cvzf ../ent-rsl-server.tgz .)
+
+cat > /tmp/$$.extract <<'EOF'
+#!/bin/bash
+if [[ $EUID -ne 0 ]]; then
+  echo "You must run this script with root permissions"
+  exit 1
+fi
+echo "Extracting Clearwater ENT rsyslog server configuration into root(/):"
+# searches for the line number where finish the script and start the tar.gz
+SKIP=`awk '/^__TARFILE_FOLLOWS__/ { print NR + 1; exit 0; }' $0`
+#remember our file name
+THIS=$0
+# take the tarfile and pipe it into tar
+tail -n +$SKIP $THIS | tar -vxz -C / | sed -e 's#^#  #'
+# Any script here will happen after the tar file extract.
+echo "Finished"
+stop rsyslog
+start rsyslog
+exit 0
+# NOTE: Don't place any newline characters after the last line below.
+__TARFILE_FOLLOWS__
+EOF
+
+cat /tmp/$$.extract ${mydir}/ent-rsl-server.tgz > ${mydir}/ent-rsl-server-install.sh
+rm -f /tmp/$$.extract
