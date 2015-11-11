@@ -877,14 +877,15 @@ for nic in ${nics[@]}; do
 
     if [ -r /var/lib/cc-ovf/dhcp.${nic}-ipv4.env ]; then
         . /var/lib/cc-ovf/dhcp.${nic}-ipv4.env
-        if [ ! -z "${mgmt[fixed_address]}" ]; then
-            new_ip_address=${mgmt[fixed_address]}
+        if [ ! -z "${eth[fixed_address]}" ]; then
+            new_ip_address=${eth[fixed_address]}
+	    log "INFO: Configuring static IP address ${new_ip_address} for ${nic}"
             echo ip -4 addr flush dev ${nic} label ${nic} 2>&1 | sed -e 's#^#   #'
             ip -4 addr flush dev ${nic} label ${nic} 2>&1 | sed -e 's#^#   #'
             echo ip -4 addr add ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} ${new_broadcast_address:+broadcast $new_broadcast_address} dev ${interface} label ${interface} 2>&1 | sed -e 's#^#   #'
             ip -4 addr add ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} ${new_broadcast_address:+broadcast $new_broadcast_address} dev ${interface} label ${interface} 2>&1 | sed -e 's#^#   #'
-            echo arping -c2 -A -I eth0 ${new_ip_address} 2>&1 | sed -e 's#^#   #'
-            arping -c2 -A -I eth0 ${new_ip_address} 2>&1 | sed -e 's#^#   #'
+            echo arping -c2 -A -I ${nic} ${new_ip_address} 2>&1 | sed -e 's#^#   #'
+            arping -c2 -A -I ${nic} ${new_ip_address} 2>&1 | sed -e 's#^#   #'
 
             # set intf_metric if IF_METRIC is set or there's more than one router
             intf_metric="$IF_METRIC"
@@ -898,7 +899,7 @@ for nic in ${nics[@]}; do
                     ip -4 route add ${router} dev $interface 2>&1 | sed -e 's#^#   #'
                 fi
 
-            # set default route
+                # set default route
                 echo ip -4 route add default via ${router} dev ${interface} \
                     ${intf_metric:+metric $intf_metric}  2>&1 | sed -e 's#^#   #'
                 ip -4 route add default via ${router} dev ${interface} \
@@ -934,16 +935,51 @@ if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
     ip netns add signaling 2>&1 | sed -e 's#^#   #'
     echo ip link set ${sig_nic} netns signaling 2>&1 | sed -e 's#^#   #'
     ip link set ${sig_nic} netns signaling 2>&1 | sed -e 's#^#   #'
-    ip netns exec signaling ifconfig lo up 2>&1 | sed -e 's#^#   #'
     echo ip netns exec signaling ifconfig lo up 2>&1 | sed -e 's#^#   #'
-    ip netns exec signaling ifconfig ${sig_nic} ${sig_ip4} up 2>&1 | sed -e 's#^#   #'
-    echo ip netns exec signaling route add default gateway $new_routers dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
+    ip netns exec signaling ifconfig lo up 2>&1 | sed -e 's#^#   #'
+
+    # Creating the namespace and moving sig_nic there destroys
+    # dhclient's configuration, so we need to redo it:
+    nic=${sig_nic}
+    . /var/lib/cc-ovf/dhcp.${nic}-ipv4.env
+    echo ip netns exec signaling ip -4 addr flush dev ${nic} label ${nic} 2>&1 | sed -e 's#^#   #'
+    ip netns exec signaling ip -4 addr flush dev ${nic} label ${nic} 2>&1 | sed -e 's#^#   #'
+    echo ip netns exec signaling ip -4 addr add ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} ${new_broadcast_address:+broadcast $new_broadcast_address} dev ${interface} label ${interface} 2>&1 | sed -e 's#^#   #'
+    ip netns exec signaling ip -4 addr add ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} ${new_broadcast_address:+broadcast $new_broadcast_address} dev ${interface} label ${interface} 2>&1 | sed -e 's#^#   #'
+    echo ip netns exec signaling ifconfig ${nic} up 2>&1 | sed -e 's#^#   #'
+    ip netns exec signaling ifconfig ${nic} up 2>&1 | sed -e 's#^#   #'
+    echo ip netns exec signaling arping -c2 -A -I ${nic} ${new_ip_address} 2>&1 | sed -e 's#^#   #'
+    ip netns exec signaling arping -c2 -A -I ${nic} ${new_ip_address} 2>&1 | sed -e 's#^#   #'
+
+    # set intf_metric if IF_METRIC is set or there's more than one router
+    intf_metric="$IF_METRIC"
+    if [ "${new_routers%% *}" != "${new_routers}" ]; then
+        intf_metric=${intf_metric:-1}
+    fi
+    for router in $new_routers; do
+        if [ "$new_subnet_mask" = "255.255.255.255" ]; then
+            # point-to-point connection => set explicit route
+            echo ip netns exec signaling ip -4 route add ${router} dev $interface 2>&1 | sed -e 's#^#   #'
+            ip netns exec signaling ip -4 route add ${router} dev $interface 2>&1 | sed -e 's#^#   #'
+        fi
+
+        # set default route
+        echo ip netns exec signaling ip -4 route add default via ${router} dev ${interface} \
+            ${intf_metric:+metric $intf_metric}  2>&1 | sed -e 's#^#   #'
+        ip netns exec signaling ip -4 route add default via ${router} dev ${interface} \
+            ${intf_metric:+metric $intf_metric}  2>&1 | sed -e 's#^#   #'
+
+        echo ip netns exec signaling ping -c1 ${router} 2>&1 | sed -e 's#^#   #'
+        ip netns exec signaling ping -c1 ${router} 2>&1 | sed -e 's#^#   #'
+    done
+
     if [ ! -z "${sig_ip6}" ]; then
-        echo ip netns exec signaling ifconfig eth1 inet6 add ${sig_ip6}/${new_ip6_prefixlen} up 2>&1 | sed -e 's#^#   #'
-        ip netns exec signaling ifconfig eth1 inet6 add ${sig_ip6}/${new_ip6_prefixlen} up 2>&1 | sed -e 's#^#   #'
+        echo "FIXME: What should we do for IPv6?" 2>&1 | sed -e 's#^#   #'
     fi
 
-    ip netns exec signaling route add default gateway $new_routers dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
+    ip netns exec signaling ifconfig 2>&1 | sed -e 's#^#   #'
+    echo ip netns exec signaling ifconfig 2>&1 | sed -e 's#^#   #'
+
     mkdir -p /etc/netns/signaling
     if [ "${sig_protocol^^}" == "IPV6" ]; then
         printf "nameserver $new_dhcp6_name_servers\n" > /etc/netns/signaling/resolv.conf

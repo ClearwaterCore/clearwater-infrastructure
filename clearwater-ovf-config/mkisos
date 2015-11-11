@@ -12,9 +12,9 @@ VM6_datastore="datastore1 (4)"
 VM6_datastore="54d8cc06-021a3b56-a5f7-ecf4bbd14c88"
 
 export "redo_deps=0"
-export "iso_types=va-base"
 export "iso_types=va-base:cc-cots"
 export "iso_types=cc-cots"
+export "iso_types=va-base"
 start_iso="http://releases.ubuntu.com/14.04.2/ubuntu-14.04.2-server-amd64.iso"
 
 cmdname=$(basename $0)
@@ -327,6 +327,21 @@ if [[ ! -r ${mydir}/extras/binary/Packages || $redo_deps -ne 0 ]]; then
         libzmq3-dev
         libevent-2.0-5
         perl
+	snmp
+	libmysqlclient18
+	libwrap0
+	debconf
+	libpci3
+	libperl5.18
+	perl-modules
+	libsensors4
+	libc6-dev
+	libwrap0-dev
+	procps
+	libsensors4-dev
+	perlapi-5.18.2
+	python
+	perl-tk
     )
 
     cedar=(

@@ -9,13 +9,6 @@ If this node is a founding member, set this to the nodes that will form the init
       </Property>
 
 
-      <Category>Payload Config</Category>
-      <Property ovf:key="cfg_dir" ovf:type="string" ovf:userConfigurable="true">
-        <Label>cfg_dir</Label>
-        <Description>File payload to be delivered to the VM. The format of this field is &lt;device&gt;:&lt;root-directory&gt;. For example - cdrom:/payload. The contents of this directory tree will be copied to the root directory (i.e. /).</Description>
-      </Property>
-
-
       <Category>Network Configuration</Category>
       <Property ovf:key="ip_protocol" ovf:qualifiers="ValueMap{&quot;IPv4&quot;,&quot;IPv6/IPv4&quot;,&quot;IPv4/IPv6&quot;}" ovf:type="string" ovf:userConfigurable="true" ovf:value="IPv4">
         <Label>ip_protocol</Label>
