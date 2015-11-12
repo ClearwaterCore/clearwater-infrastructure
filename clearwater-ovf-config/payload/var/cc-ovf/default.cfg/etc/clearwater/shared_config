@@ -1,0 +1,93 @@
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#
+# WARNING - THE TOP PORTION OF THIS FILE NOT INTENDED TO BE MANUALLY EDITED
+#
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+home_domain=$(sed -e "s#^$(hostname -s)[.]##" /etc/hostname)
+
+# Deployment definitions
+sprout_hostname=sprout.${home_domain}
+hs_hostname=homestead.${home_domain}:8888
+chronos_hostname=$local_ip:7253
+if [ -e /etc/init.d/ralf ]; then
+    ralf_hostname=ralf.${home_domain}:10888
+else
+    # Ralf is optional, so check DNS and allow for no ralf(s)
+    if [ ! -z "$(dig +noall +answer ralf.${home_domain}|awk '{print $5}')" ]; then
+	ralf_hostname=ralf.${home_domain}:10888
+    fi
+fi
+
+if [ "$(ip netns list)" = "signaling" ]; then 
+    sprout_hostname_mgmt=sprout-mgmt.${home_domain}
+    hs_hostname_mgmt=homestead-mgmt.${home_domain}
+    if [ ! -z "$(dig +noall +answer ralf.${home_domain}|awk '{print $5}')" ]; then
+	ralf_hostname_mgmt=ralf-mgmt.${home_domain}:10888
+    fi
+fi
+
+if [ -e /etc/init.d/cedar ]; then
+    cedar_hostname=cedar.${home_domain}
+    if [ -e /etc/init.d/sprout ]; then
+	if [ -e /etc/init.d/homestead ]; then
+	    etcd_cluster_key=COTS
+	fi
+    fi
+else
+    # Cedar is optional, so check DNS and allow for no cedar(s)
+    if [ ! -z "$(dig +noall +answer cedar.${home_domain}|awk '{print $5}')" ]; then
+	cedar_hostname=cedar.${home_domain}
+    fi
+fi
+
+# Move homestead out of cedar's way
+hs_listen_port=3870
+hs_secure_listen_port=5658
+if [ "${BASH_ARGV:=ralf_hostname}" != "unset" ]; then
+    # Move ralf out of cedar's way
+    ralf_listen_port=3869
+    ralf_secure_listen_port=5659
+fi
+if [ "${BASH_ARGV:=cedar_hostname}" != "unset" ]; then
+    cedar_listen_port=3868
+    cedar_secure_listen_port=5660
+fi
+
+# HSS configuration
+if [ ! -e /etc/init.d/homestead-prov ]; then
+    if [ ! -z "$(dig +noall +answer SRV _diameter._tcp.${home_domain})" ]; then
+	hss_realm=${home_domain}
+    else   
+	hss_hostname=hss.${home_domain}
+	hss_port=3868
+    fi
+    hss_reregistration_time=1800
+    hss_mar_lowercase_unknown=Y
+else
+    hs_provisioning_hostname=$(. /etc/clearwater/local_config; echo ${management_local_ip}):8889
+fi
+
+# SAS configuration
+sas_server=sas.${home_domain}
+
+# Billing configuration
+billing_realm=billing.${home_domain}
+
+# SNMP alarm/trap handler
+snmp_ip=alarm-sink.${home_domain}
+
+# I-CSCF/S-CSCF configuration
+icscf=5052
+scscf=5054
+scscf_uri="sip:sprout.${home_domain};transport=TCP"
+
+# ENUM configuration:
+#   Note: Sprout wants an IP address not a FQDN, so look it up
+enum_server=enum.${home_domain}
+enum_server=$(dig +noall +answer enum.${home_domain} 2>&1 | awk '{print $5}')
+
+###############################################################################
+#
+# ADD NON-GENERIC SHARED CLEARWATER CONFIGURATION SETTINGS BELOW
+#
+#vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv

@@ -1,0 +1,60 @@
+#!/bin/bash -x
+
+mydir=$(cd `dirname $0`;pwd)
+cwd=$(pwd)
+
+# Create directory for the payload
+rm -rf ${mydir}/CC-ISO
+mkdir -p ${mydir}/CC-ISO/iso/payload
+
+# Make a tarball of all the stuff we want in our payload ISO which is
+# easier than a bunch of copies.
+tar cvzf ${mydir}/CC-ISO/payload.tgz \
+    /etc/rsyslog.conf /etc/rsyslog.d/40-craftlog.conf \
+    /etc/clearwater/ent \
+    /etc/apt/certs \
+    /etc/apt/apt.conf.d/45core-repo_clearwater_metaswitch_com \
+    /etc/apt/sources.list.d/clearwater-core.list \
+    /etc/apt/trusted.gpg \
+    /etc/apt/trusted.gpg.d \
+    /root/.ssh \
+    /home/clearwater/.ssh
+
+# Untar the payload into the directory tree
+(
+    cd ${mydir}/CC-ISO/iso/payload
+    tar xvzf ${mydir}/CC-ISO/payload.tgz
+    chown clearwater:clearwater home/clearwater
+)
+
+# Add a postinst script
+cat > ${mydir}/CC-ISO/iso/noncc.postinst <<'EOF'
+#!/bin/bash -x
+restart rsyslog
+userdel ccst
+rm -rvf /home/ccst
+useradd ccst -m --password $(openssl passwd -1 ccst) -s /bin/bash
+printf "ccst	ALL=NOPASSWD: ALL\n" >> /etc/sudoers
+EOF
+chmod +x ${mydir}/CC-ISO/iso/noncc.postinst
+
+# Make the ISO
+(
+    cd ${mydir}/CC-ISO
+    genisoimage -R -o cc-ovf-payload.iso iso/
+)
+
+# Transfer the ISO to our vSphere datastore
+sshpass -p '!bootstrap' scp ${mydir}/CC-ISO/cc-ovf-payload.iso root@192.168.160.230:/tmp
+sshpass -p '!bootstrap' scp ${mydir}/CC-ISO/cc-ovf-payload.iso root@192.168.160.100:/tmp
+
+# Mount the ISO locally and take a look
+mkdir -p /mnt/cdrom
+mount -o loop ${mydir}/CC-ISO/cc-ovf-payload.iso /mnt/cdrom/
+
+find /mnt/cdrom -print0|xargs -0 ls -lad
+cat /mnt/cdrom/noncc.postinst
+
+umount /mnt/cdrom
+rmdir /mnt/cdrom
+
