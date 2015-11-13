@@ -83,6 +83,9 @@ dom.unlink()
 EOS
 }
 
+# Function to print out a command before executing it.
+echo_and_run() { echo "$@" ; "$@" ; }
+
 # Function for logging to syslog and stdout
 log() {
     echo "   $*"
@@ -930,20 +933,15 @@ fi
 if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
     log "INFO: Configuring signaling network namespace"
 
-    echo ip netns add signaling 2>&1 | sed -e 's#^#   #'
-    ip netns add signaling 2>&1 | sed -e 's#^#   #'
-    echo ip link set ${sig_nic} netns signaling 2>&1 | sed -e 's#^#   #'
-    ip link set ${sig_nic} netns signaling 2>&1 | sed -e 's#^#   #'
-    ip netns exec signaling ifconfig lo up 2>&1 | sed -e 's#^#   #'
-    echo ip netns exec signaling ifconfig lo up 2>&1 | sed -e 's#^#   #'
-    ip netns exec signaling ifconfig ${sig_nic} ${sig_ip4} up 2>&1 | sed -e 's#^#   #'
-    echo ip netns exec signaling route add default gateway $new_routers dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns add signaling 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip link set ${sig_nic} netns signaling 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns exec signaling ifconfig lo up 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns exec signaling ifconfig ${sig_nic} ${sig_ip4} netmask ${sig_subnet_mask} up 2>&1 | sed -e 's#^#   #'
     if [ ! -z "${sig_ip6}" ]; then
-        echo ip netns exec signaling ifconfig eth1 inet6 add ${sig_ip6}/${new_ip6_prefixlen} up 2>&1 | sed -e 's#^#   #'
-        ip netns exec signaling ifconfig eth1 inet6 add ${sig_ip6}/${new_ip6_prefixlen} up 2>&1 | sed -e 's#^#   #'
+        echo_and_run ip netns exec signaling ifconfig eth1 inet6 add ${sig_ip6}/${new_ip6_prefixlen} up 2>&1 | sed -e 's#^#   #'
     fi
 
-    ip netns exec signaling route add default gateway $new_routers dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns exec signaling route add default gateway $new_routers dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
     mkdir -p /etc/netns/signaling
     if [ "${sig_protocol^^}" == "IPV6" ]; then
         printf "nameserver $new_dhcp6_name_servers\n" > /etc/netns/signaling/resolv.conf
@@ -951,15 +949,12 @@ if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
         printf "nameserver $new_domain_name_servers\n" > /etc/netns/signaling/resolv.conf
     fi
     printf "Debug info (signaling netns routing table):\n" 2>&1 | sed -e 's#^#   #'
-    echo ip netns exec signaling route 2>&1 | sed -e "s#^#     ${LINENO} #"
-    ip netns exec signaling route 2>&1 | sed -e "s#^#     ${LINENO} #"
-    echo ip netns 2>&1 | sed -e 's#^#   #'
-    ip netns 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns exec signaling route 2>&1 | sed -e "s#^#     ${LINENO} #"
+    echo_and_run ip netns 2>&1 | sed -e 's#^#   #'
 
     (
         . /var/lib/cc-ovf/dhcp.${mgmt_nic}-ipv4.env
-        echo route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
-        route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
+        echo_and_run route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
     )
 fi
 
