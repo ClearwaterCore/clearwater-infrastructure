@@ -8,6 +8,9 @@ fi
 if [ -s /var/lib/cc-ovf/qcow.vars ]; then
     var_files=( ${var_files[@]} /var/lib/cc-ovf/qcow.vars )
 fi
+if [ -s /var/lib/cc-ovf/ec2.vars ]; then
+    var_files=( ${var_files[@]} /var/lib/cc-ovf/ec2.vars )
+fi
 if [ -s /var/lib/cc-ovf/configurator.vars ]; then
     var_files=( ${var_files[@]} /var/lib/cc-ovf/configurator.vars )
 fi

@@ -46,6 +46,15 @@ set +e
 doIPv4=1
 doIPv6=0
 
+# Check for running in AWS EC2 VM
+amEC2VM=0
+if [ -x /usr/bin/ec2-metadata ]; then
+    /usr/bin/ec2-metadata -i
+    if [ $? -eq 0 ]; then
+	amEC2VM=1
+    fi
+fi
+
 rm -f /var/log/ovf-sc.dhclient*.log
 touch /var/log/ovf-sc.dhclient-4.log /var/log/ovf-sc.dhclient-6.log
 
@@ -107,12 +116,14 @@ err() {
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n" "$*"
     cat /etc/motd
     logger "self-config:" "$*"
-    printf "Press <Enter> to troubleshoot..."
-    read RESPONSE
-    if [ ! -z $(jobs -p) ]; then
-        kill -9 $(jobs -p)
+    if [ $amEC2VM -eq 0 ]; then
+	printf "Press <Enter> to troubleshoot..."
+	read RESPONSE
+	if [ ! -z $(jobs -p) ]; then
+            kill -9 $(jobs -p)
+	fi
+	bash --norc --noprofile -i
     fi
-    bash --norc --noprofile -i
 
     # Close stdout to flush to the log
     exec 1>&-
@@ -229,6 +240,31 @@ else
             . /var/lib/cc-ovf/qcow.vars
         fi
     fi
+    if [ $amEC2VM -ne 0 ]; then
+	if ec2-metadata --user-data 2>&1 | sed -e 's#^user-data:##' | python -mjson.tool > /dev/null 2>&1; then
+            rm -f /var/lib/cc-ovf/ec2.vars
+
+	    ec2-metadata --user-data | sed -e 's#^user-data:##' | python -mjson.tool 2>&1 | sed -e 's#^#   #'
+
+	    ec2-metadata --user-data | sed -e 's#^user-data:##' | python -mjson.tool | sed -n '/"meta":/,//{/"meta"/{p;n};/}/{q};p}'|grep -v "meta\":"|sed -e 's/^[[:space:]]*"//;s/":[[:space:]]*/=/;s/,$//' >> /var/lib/cc-ovf/ec2.vars
+	    vars_md5=$(md5sum -b /var/lib/cc-ovf/ec2.vars|awk '{print $1}')
+	    if [ -e /var/lib/cc-ovf/ec2.md5 ]; then
+		if [ "$(cat /var/lib/cc-ovf/ec2.md5)" != "$vars_md5" ]; then
+		    err "ERROR: Changes to EC2 user-data not allowed! Halting ..."
+		fi
+	    fi
+	    printf "$vars_md5\n" > /var/lib/cc-ovf/ec2.md5
+
+	    if [ -s /var/lib/cc-ovf/ec2.vars ]; then
+		printf "VA environment (per AWS EC2 user-data):\n" 2>&1 | sed -e 's#^#   #'
+		cat /var/lib/cc-ovf/ec2.vars 2>&1 | sed -e 's#^#     #'
+		. /var/lib/cc-ovf/ec2.vars
+	    fi
+	else
+            printf "Bad (or no) AWS EC2 user-data:\n" 2>&1 | sed -e 's#^#   #'
+	    ec2-metadata --user-data 2>&1 | sed -e 's#^#  #'
+	fi
+    fi
 fi
 if [[ ! -s /var/lib/cc-ovf/ovf.vars && ! -s /var/lib/cc-ovf/qcow.vars ]]; then
     if [ ! -z ${cfg_dev} ]; then
@@ -243,7 +279,9 @@ if [[ ! -s /var/lib/cc-ovf/ovf.vars && ! -s /var/lib/cc-ovf/qcow.vars ]]; then
                 # Unable to read from CD.
                 umount ${cfg_dev} 2>&1 | sed -e 's#^#   #'
                 log "WARN: No VA environment on the CD..."
-                run_configurator=yes
+		if [ $amEC2VM -eq 0 ]; then
+                    run_configurator=yes
+		fi
             else
                 # CD mounted and readable so add contents to environment.
                 printf "VA environment (per cdrom/ovf.env):\n" 2>&1 | sed -e 's#^#   #'
