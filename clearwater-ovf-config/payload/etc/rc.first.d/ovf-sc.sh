@@ -1122,10 +1122,13 @@ else
                 err "ERROR: Invalid format of 'cfg_dir' ($cfg_dir) property. Halting ..."
             else
                 cfg_loc=${cfg_loc[0]}
+		if [[ ! "${cfg_loc}" =~ ^/ ]]; then
+                    cfg_loc="/mnt/ovf.cfg/${cfg_loc[0]}"
+		fi
             fi
         else
             cfg_dev=/dev/${cfg_loc[0]}
-            cfg_loc=${cfg_loc[1]}
+            cfg_loc=/mnt/ovf.cfg/${cfg_loc[1]}
         fi
         if [ ! -z "$cfg_dev" ]; then
             mkdir -p /mnt/ovf.cfg
