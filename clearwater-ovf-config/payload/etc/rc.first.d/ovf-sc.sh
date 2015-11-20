@@ -1100,6 +1100,18 @@ else
                 cfg_dir="$(basename ${cfg_dev}):/payload"
             fi
             umount ${cfg_dev} > /dev/null 2>&1
+	else
+	    if [ ! -z "${s3_payload}" ]; then
+		wget -qO- --tries=1 --timeout=2 "${s3_payload}" > /tmp/s3_payload.iso
+		if [ $? -eq 0 ]; then
+		    mount -o loop /tmp/s3_payload.iso /mnt/ovf.cfg > /dev/null 2>&1
+		    if [ $? -eq 0 ]; then
+			if [ -d /mnt/ovf.cfg/payload ]; then
+			    cfg_dir="/mnt/ovf.cfg/payload"
+			fi
+		    fi
+		fi
+	    fi
         fi
     fi
     cc_dirs=(/etc/chronos /etc/cassandra /etc/clearwater)
@@ -1122,18 +1134,18 @@ else
         if [ $? -ne 0 ]; then
             err "ERROR: Cannot mount ${cfg_dev}. Halting ..."
         fi
-        if [ ! -f /mnt/ovf.cfg/${cfg_loc} ]; then
-            if [ ! -d /mnt/ovf.cfg/${cfg_loc} ]; then
+        if [ ! -f ${cfg_loc} ]; then
+            if [ ! -d ${cfg_loc} ]; then
                 if [ ! -z "$cfg_dev" ]; then
                     umount ${cfg_dev} 2>&1 | sed -e 's#^#   #'
                 fi
                 err "ERROR: Invalid/missing config - ${cfg_loc}. Halting ..."
             fi
-            cfg_dir="/mnt/ovf.cfg/${cfg_loc}"
+            cfg_dir="${cfg_loc}"
         else
             rm -rf /var/lib/cc-ovf/ovf.cfg
             mkdir -p /var/lib/cc-ovf/ovf.cfg
-            tar zvxf /mnt/ovf.cfg/${cfg_loc} -C /var/lib/cc-ovf/ovf.cfg > /dev/null 2>&1
+            tar zvxf ${cfg_loc} -C /var/lib/cc-ovf/ovf.cfg > /dev/null 2>&1
             if [ $? != 0 ]; then
                 if [ ! -z "$cfg_dev" ]; then
                     umount ${cfg_dev} 2>&1 | sed -e 's#^#   #'
@@ -1201,9 +1213,7 @@ else
             fi
         fi
 
-        if [ ! -z "$cfg_dev" ]; then
-            umount ${cfg_dev}
-        fi
+        umount /mnt/ovf.cfg > /dev/null 2>&1
     fi
 
     subst_files=($(find ${cc_dirs[@]} -type f -print0 2> /dev/null|xargs -0 grep -l "\$[[][^]]*[]]"))

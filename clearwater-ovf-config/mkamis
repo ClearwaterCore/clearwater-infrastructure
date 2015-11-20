@@ -184,7 +184,7 @@ node_types=( $(echo $node_types|sed -e 's#:# #g') )
 
 VM_power_down()
 {
-    aws ec2 describe-instances --filter "Name=tag:Name,Values=$1" > /tmp/$$.aws 2>&1
+    aws ec2 describe-instances --filter "Name=tag:Name,Values=$(echo ${1}|sed -e 's#,#\\,#g')" > /tmp/$$.aws 2>&1
     num_found=$(cat /tmp/$$.aws|python -c "import json,sys;obj=json.load(sys.stdin);print len(obj['Reservations'])")
     if [ ${num_found} -eq 1 ]; then
 	instance_id=$(cat /tmp/$$.aws|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Reservations'][0]['Instances'][0]['InstanceId']")
@@ -194,8 +194,8 @@ VM_power_down()
         printf "Waiting for power down to complete..."
 	while [ true ]; do
 	    aws ec2 stop-instances --instance-ids ${instance_id} > /dev/null 2>&1
-	    state=$(aws ec2 describe-instances --filter "Name=tag:Name,Values=$1"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Reservations'][0]['Instances'][0]['State']['Name']")
-	    if [ "${state}" == "stopped" ]; then
+	    state=$(aws ec2 describe-instances --filter "Name=tag:Name,Values=$(echo ${1}|sed -e 's#,#\\,#g')"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Reservations'][0]['Instances'][0]['State']['Name']")
+	    if [[ "${state}" == "stopped" || "${state}" == "terminated" ]]; then
 		break
 	    fi
             printf "."
@@ -208,7 +208,7 @@ VM_power_down()
 
 VM_power_up()
 {
-    aws ec2 describe-instances --filter "Name=tag:Name,Values=$1" > /tmp/$$.aws 2>&1
+    aws ec2 describe-instances --filter "Name=tag:Name,Values=$(echo ${1}|sed -e 's#,#\\,#g')" > /tmp/$$.aws 2>&1
     num_found=$(cat /tmp/$$.aws|python -c "import json,sys;obj=json.load(sys.stdin);print len(obj['Reservations'])")
     if [ ${num_found} -eq 1 ]; then
 	instance_id=$(cat /tmp/$$.aws|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Reservations'][0]['Instances'][0]['InstanceId']")
@@ -219,7 +219,7 @@ VM_power_up()
 
         printf "Waiting for power up to complete..."
 	while [ true ]; do
-	    state=$(aws ec2 describe-instances --filter "Name=tag:Name,Values=$1"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Reservations'][0]['Instances'][0]['State']['Name']")
+	    state=$(aws ec2 describe-instances --filter "Name=tag:Name,Values=$(echo ${1}|sed -e 's#,#\\,#g')"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Reservations'][0]['Instances'][0]['State']['Name']")
 	    if [ "${state}" == "running" ]; then
 		break
 	    fi
@@ -228,7 +228,7 @@ VM_power_up()
 	done
         printf "done\n"
 
-	VM_ip=$(aws ec2 describe-instances --filter "Name=tag:Name,Values=$1"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['Association']['PublicIp']")
+	VM_ip=$(aws ec2 describe-instances --filter "Name=tag:Name,Values=$(echo ${1}|sed -e 's#,#\\,#g')"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['Association']['PublicIp']")
 
 	printf "Trying to connect to VM ${1}(${instance_id})@${VM_ip}..."
 	while [ true ]; do
@@ -250,7 +250,7 @@ VM_power_up()
 
 VM_reboot()
 {
-    aws ec2 describe-instances --filter "Name=tag:Name,Values=$1" > /tmp/$$.aws 2>&1
+    aws ec2 describe-instances --filter "Name=tag:Name,Values=$(echo ${1}|sed -e 's#,#\\,#g')" > /tmp/$$.aws 2>&1
     num_found=$(cat /tmp/$$.aws|python -c "import json,sys;obj=json.load(sys.stdin);print len(obj['Reservations'])")
     if [ ${num_found} -eq 1 ]; then
 	instance_id=$(cat /tmp/$$.aws|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Reservations'][0]['Instances'][0]['InstanceId']")
@@ -258,7 +258,7 @@ VM_reboot()
 	aws ec2 reboot-instances --instance-ids ${instance_id} > /dev/null 2>&1
         printf "\n"
 
-	VM_ip=$(aws ec2 describe-instances --filter "Name=tag:Name,Values=$1"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['Association']['PublicIp']")
+	VM_ip=$(aws ec2 describe-instances --filter "Name=tag:Name,Values=$(echo ${1}|sed -e 's#,#\\,#g')"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['Association']['PublicIp']")
 
 	printf "Trying to connect to VM ${1}(${VM_ip})..."
 	while [ true ]; do
@@ -281,13 +281,13 @@ VM_reboot()
 VM_destroy()
 {
     VM_power_down ${1}
-    aws ec2 describe-instances --filter "Name=tag:Name,Values=$1" > /tmp/$$.aws 2>&1
+    aws ec2 describe-instances --filter "Name=tag:Name,Values=$(echo ${1}|sed -e 's#,#\\,#g')" > /tmp/$$.aws 2>&1
     num_found=$(cat /tmp/$$.aws|python -c "import json,sys;obj=json.load(sys.stdin);print len(obj['Reservations'])")
     if [ ${num_found} -eq 1 ]; then
 	instance_id=$(cat /tmp/$$.aws|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Reservations'][0]['Instances'][0]['InstanceId']")
 	printf "Terminating VM ${1}(${instance_id})...\n"
 	aws ec2 terminate-instances --instance-ids ${instance_id} > /dev/null 2>&1
-	aws ec2 delete-tags --resources ${instance_id} --tags "Key=Name,Value=${1}" > /dev/null 2>&1
+	aws ec2 delete-tags --resources ${instance_id} --tags "Key=Name,Value=$(echo ${1}|sed -e 's#,#\\,#g')" > /dev/null 2>&1
         printf "\n"
     fi
 }
@@ -296,17 +296,17 @@ VM_make_template()
 {
     VM_power_down ${1}
 
-    aws ec2 describe-instances --filter "Name=tag:Name,Values=$1" > /tmp/$$.aws 2>&1
+    aws ec2 describe-instances --filter "Name=tag:Name,Values=$(echo ${1}|sed -e 's#,#\\,#g')" > /tmp/$$.aws 2>&1
     num_found=$(cat /tmp/$$.aws|python -c "import json,sys;obj=json.load(sys.stdin);print len(obj['Reservations'])")
     if [ ${num_found} -eq 1 ]; then
-	num_images=$(aws ec2 describe-images --filter "Name=name,Values=${1}"|python -c "import json,sys;obj=json.load(sys.stdin);print len(obj['Images'])")
+	num_images=$(aws ec2 describe-images --filter "Name=name,Values=$(echo ${1}|sed -e 's#,#/#g')"|python -c "import json,sys;obj=json.load(sys.stdin);print len(obj['Images'])")
 	if [ ${num_images} -eq 1 ]; then
-	    image_id=$(aws ec2 describe-images --filter "Name=name,Values=${1}"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Images'][0]['ImageId']")
-	    aws ec2 delete-tags --resources ${image_id} --tags "Key=Name,Value=${1}" > /dev/null 2>&1
+	    image_id=$(aws ec2 describe-images --filter "Name=name,Values=$(echo ${1}|sed -e 's#,#/#g')"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Images'][0]['ImageId']")
+	    aws ec2 delete-tags --resources ${image_id} --tags "Key=Name,Value=$(echo ${1}|sed -e 's#,#\\,#g')" > /dev/null 2>&1
 	    printf "Deregistering AMI (${image_id})..."
 	    aws ec2 deregister-image --image-id ${image_id} > /dev/null 2>&1
 	    while [ true ]; do
-		num_images=$(aws ec2 describe-images --filter "Name=name,Values=${1}" |python -c "import json,sys;obj=json.load(sys.stdin);print len(obj['Images'])")
+		num_images=$(aws ec2 describe-images --filter "Name=name,Values=$(echo ${1}|sed -e 's#,#/#g')" |python -c "import json,sys;obj=json.load(sys.stdin);print len(obj['Images'])")
 		if [ $num_images -eq 0 ]; then
 		    break
 		fi
@@ -318,10 +318,10 @@ VM_make_template()
 
 	instance_id=$(cat /tmp/$$.aws|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Reservations'][0]['Instances'][0]['InstanceId']")
 	printf "Creating AMI from VM ${1}(${instance_id})..."
-	aws ec2 create-image --instance-id ${instance_id} --name ${1} > /dev/null 2>&1
+	aws ec2 create-image --instance-id ${instance_id} --name $(echo ${1}|sed -e 's#,#/#g') > /dev/null 2>&1
 
 	while [ true ]; do
-	    num_images=$(aws ec2 describe-images --filter "Name=name,Values=${1}" |python -c "import json,sys;obj=json.load(sys.stdin);print len(obj['Images'])")
+	    num_images=$(aws ec2 describe-images --filter "Name=name,Values=$(echo ${1}|sed -e 's#,#/#g')" |python -c "import json,sys;obj=json.load(sys.stdin);print len(obj['Images'])")
 	    if [ $num_images -eq 1 ]; then
 		break
 	    fi
@@ -329,7 +329,7 @@ VM_make_template()
 	    sleep 1
 	done
 
-	image_id=$(aws ec2 describe-images --filter "Name=name,Values=${1}"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Images'][0]['ImageId']")
+	image_id=$(aws ec2 describe-images --filter "Name=name,Values=$(echo ${1}|sed -e 's#,#/#g')"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Images'][0]['ImageId']")
 	while [ true ]; do
 	    state=$(aws ec2 describe-images --image-id ${image_id}| python -c "import json,sys;obj=json.load(sys.stdin);print obj['Images'][0]['State']")
 	    if [ "${state}" == "available" ]; then
@@ -339,10 +339,10 @@ VM_make_template()
 	    sleep 1
 	done
         printf "done (${image_id})\n"
-	aws ec2 create-tags --resources ${image_id} --tags "Key=Name,Value=${1}" > /dev/null 2>&1
+	aws ec2 create-tags --resources ${image_id} --tags "Key=Name,Value=$(echo ${1}|sed -e 's#,#\\,#g')" > /dev/null 2>&1
 
 	#aws ec2 terminate-instances --instance-ids ${instance_id} > /dev/null 2>&1
-	#aws ec2 delete-tags --resources ${instance_id} --tags "Key=Name,Value=${1}" > /dev/null 2>&1
+	#aws ec2 delete-tags --resources ${instance_id} --tags "Key=Name,Value=$(echo ${1}|sed -e 's#,#\\,#g')" > /dev/null 2>&1
     fi
 }
 
@@ -351,13 +351,14 @@ VM_clone()
     secgrp=$(aws --output text ec2 describe-security-groups --filter "Name=tag:Name,Values=ccBase*"|grep "^SECURITYGROUPS.*ccBase.*${vpc_id}"|sed -e 's#^.*\(sg-[^[:space:]]*\).*#\1#')
     subnets=( $(aws --output text ec2 describe-subnets --filters "Name=tag:Name,Values=ccBase*"|grep "^SUBNETS.*${vpc_id}"|sed -e 's#^.*\(subnet-[^[:space:]]*\).*#\1#') )
 
-    num_images=$(aws ec2 describe-images --filter "Name=name,Values=ubu14-base-v9"|python -c "import json,sys;obj=json.load(sys.stdin);print len(obj['Images'])")
+    num_images=$(aws ec2 describe-images --filter "Name=name,Values=$(echo ${1}|sed -e 's#,#/#g')"|python -c "import json,sys;obj=json.load(sys.stdin);print len(obj['Images'])")
     if [ ${num_images} -eq 1 ]; then
-	ami_id=$(aws ec2 describe-images --filter "Name=name,Values=$1"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Images'][0]['ImageId']")
-	printf "Cloning AMI ${1}(${ami_id}) to VM ${2}...\n"
+	ami_id=$(aws ec2 describe-images --filter "Name=name,Values=$(echo ${1}|sed -e 's#,#/#g')"|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Images'][0]['ImageId']")
+	printf "Cloning AMI ${1}(${ami_id}) to VM ${2}..."
 	aws ec2 run-instances --associate-public-ip-address --subnet-id ${subnets[0]} --image-id ${ami_id} --security-group-ids ${secgrp} --count 1 --instance-type t2.medium --key-name cc-keypair --block-device-mappings "[{\"DeviceName\": \"/dev/sda1\",\"Ebs\":{\"VolumeSize\":20,\"DeleteOnTermination\":true}}]" > /tmp/$$.aws 2>&1
 	instance_id=$(cat /tmp/$$.aws|python -c "import json,sys;obj=json.load(sys.stdin);print obj['Instances'][0]['InstanceId']")
-	aws ec2 create-tags --resources ${instance_id} --tags "Key=Name,Value=${2}" > /dev/null 2>&1
+	printf "${instance_id}\n"
+	aws ec2 create-tags --resources ${instance_id} --tags "Key=Name,Value=$(echo ${2}|sed -e 's#,#\\,#g')" > /dev/null 2>&1
 
 	VM_power_down ${2}
     fi
