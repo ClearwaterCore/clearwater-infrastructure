@@ -46,15 +46,6 @@ set +e
 doIPv4=1
 doIPv6=0
 
-# Check for running in AWS EC2 VM
-amEC2VM=0
-if [ -x /usr/bin/ec2-metadata ]; then
-    /usr/bin/ec2-metadata -i
-    if [ $? -eq 0 ]; then
-	amEC2VM=1
-    fi
-fi
-
 rm -f /var/log/ovf-sc.dhclient*.log
 touch /var/log/ovf-sc.dhclient-4.log /var/log/ovf-sc.dhclient-6.log
 
@@ -75,6 +66,16 @@ sleep 2
 printf "\n\
  * Starting Clearwater Core VA self configuration:\n\
 "
+
+# Check for running in AWS EC2 VM
+amEC2VM=0
+if [ -x /usr/bin/ec2-metadata ]; then
+    /usr/bin/ec2-metadata -i
+    if [ $? -eq 0 ]; then
+	amEC2VM=1
+	log "INFO: AWS EC2 instance."
+    fi
+fi
 
 # Function for parsing local configuration options and turning
 # them into bash variables
@@ -103,7 +104,6 @@ log() {
 # be rebooted so as to try again in case the # problem is intermittent
 # and we can recover automatically.
 err() {
-    (sleep 60; rm -f /boot/grub/grubenv; printf "\n\nRebooting..."; for i in {1..5}; do (sleep 1;sync;printf ".");done; reboot -f)&
     printf > /etc/motd "\
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\
 !!                                                                           !!\n\
@@ -117,6 +117,7 @@ err() {
     cat /etc/motd
     logger "self-config:" "$*"
     if [ $amEC2VM -eq 0 ]; then
+	(sleep 60; rm -f /boot/grub/grubenv; printf "\n\nRebooting..."; for i in {1..5}; do (sleep 1;sync;printf ".");done; reboot -f)&
 	printf "Press <Enter> to troubleshoot..."
 	read RESPONSE
 	if [ ! -z $(jobs -p) ]; then
@@ -279,9 +280,7 @@ if [[ ! -s /var/lib/cc-ovf/ovf.vars && ! -s /var/lib/cc-ovf/qcow.vars ]]; then
                 # Unable to read from CD.
                 umount ${cfg_dev} 2>&1 | sed -e 's#^#   #'
                 log "WARN: No VA environment on the CD..."
-		if [ $amEC2VM -eq 0 ]; then
-                    run_configurator=yes
-		fi
+                run_configurator=yes
             else
                 # CD mounted and readable so add contents to environment.
                 printf "VA environment (per cdrom/ovf.env):\n" 2>&1 | sed -e 's#^#   #'
@@ -297,7 +296,7 @@ if [[ ! -s /var/lib/cc-ovf/ovf.vars && ! -s /var/lib/cc-ovf/qcow.vars ]]; then
     fi
 fi
 
-if [ "${run_configurator^^}" == "YES" ]; then
+if [[ $amEC2VM -eq 0 && "${run_configurator^^}" == "YES" ]]; then
     if [ ! -e /var/lib/cc-ovf/configurator.vars ]; then
         if [ -x /var/cc-ovf/configurator/craft.bash ]; then
             log "WARN: No config.vars! Prompting the user..."
@@ -1185,7 +1184,7 @@ else
             if [ "${last_cc_cfg[0]}" != "${cc_cfg_md5}" ]; then
                 (
                     cd ${cfg_dir}
-                    cp -rvp --parents $(cd ${cfg_dir}; find . -type f -print 2> /dev/null|egrep -E "($(echo ${cc_dirs[@]}|sed -e 's#[[:space:]]\+#|#g'))") / 2>&1 | sed -e "s#^#     ${LINENO} #"
+                    cp -rvpd --parents $(cd ${cfg_dir}; find . -xtype d -print 2> /dev/null|egrep -E "($(echo ${cc_dirs[@]}|sed -e 's#[[:space:]]\+#|#g'))") / 2>&1 | sed -e "s#^#     ${LINENO} #"
                 )
 
                 printf "${cc_cfg_md5} ${cc_cfg_newest}\n" > /etc/last_cc_cfg
@@ -1207,7 +1206,7 @@ else
             if [ "${last_noncc_cfg[0]}" != "${noncc_cfg_md5}" ]; then
                 (
                     cd ${cfg_dir}
-                    cp -rvp --parents $(cd ${cfg_dir}; find . -type f -print 2> /dev/null|egrep -v -E "($(echo ${cc_dirs[@]}|sed -e 's#[[:space:]]\+#|#g'))") /
+                    cp -rvpd --parents $(cd ${cfg_dir}; find . -xtype d -print 2> /dev/null|egrep -v -E "($(echo ${cc_dirs[@]}|sed -e 's#[[:space:]]\+#|#g'))") /
                     if [ -x ../noncc.postinst ]; then
                         ../noncc.postinst
                     fi
