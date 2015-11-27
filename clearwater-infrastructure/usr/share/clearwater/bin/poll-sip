@@ -45,7 +45,7 @@ port=$1
 . /etc/clearwater/config
 
 # Get a unique ID for this request, based on the uptime.
-id=$(cut -d. -f1 /proc/uptime)
+id=$(date +%N)
 
 # For SIP, we need to wrap IPv6 addresses in square brackets.
 sip_ip=$(/usr/share/clearwater/bin/bracket_ipv6_address.py $local_ip)
