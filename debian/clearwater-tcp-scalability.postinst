@@ -63,7 +63,13 @@ add_section() {
 case "$1" in
     configure)
         add_section /etc/sysctl.conf clearwater-tcp-scalability /etc/sysctl.conf.clearwater
-        sysctl -p /etc/sysctl.conf >/dev/null
+        . /etc/clearwater/config
+        if [ "$containers" = "Y" ]
+        then
+          sysctl -p /etc/sysctl.conf >/dev/null || /bin/true
+        else
+          sysctl -p /etc/sysctl.conf >/dev/null
+        fi
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

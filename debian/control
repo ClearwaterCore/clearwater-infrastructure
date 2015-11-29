@@ -25,6 +25,7 @@ Description: memcached configured for Clearwater
 
 Package: clearwater-tcp-scalability
 Architecture: all
+Depends: clearwater-infrastructure
 Description: TCP scalability improvements for Clearwater
 
 Package: clearwater-secure-connections
