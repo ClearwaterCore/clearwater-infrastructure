@@ -12,7 +12,7 @@ export "PUBLISH=0"
 export "no_VAs=0"
 export "NO_TEMPLATES=0"
 export "node_types=sprout:ralf:homestead,homestead-prov:homestead"
-export "node_types=homestead"
+#export "node_types=homestead"
 
 usage()
 {
