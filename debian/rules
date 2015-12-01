@@ -36,5 +36,6 @@ override_dh_installinit:
 	dh_installinit -pclearwater-diags-monitor --no-start
 	dh_installinit -pclearwater-socket-factory
 	dh_installinit -pclearwater-secure-connections
+	dh_installinit -pclearwater-ent-rsyslog
 
 override_dh_shlibdeps:

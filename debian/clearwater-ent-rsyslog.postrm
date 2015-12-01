@@ -1,0 +1,5 @@
+rm -f /etc/rsyslog.d/40-craftlog.conf
+
+stop rsyslog || true
+start rsyslog || true
+
