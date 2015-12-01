@@ -1,0 +1,120 @@
+#!/bin/bash
+
+doPrompt()
+{
+    PROMPT=$1
+    HELP=$2
+    DEFAULT=$3
+
+    printf "\n${PROMPT}\n${HELP}The default value is: ${DEFAULT}\n: "
+    read RESPONSE
+    if [ "$RESPONSE" == "" ]; then
+	RESPONSE=$DEFAULT
+    fi
+}
+
+doConfirm()
+{
+    if [ "$1" != "" ]; then
+	let "lim=$1"
+    else
+	let "lim=3"
+    fi
+    printf "\n"
+    local confirm_done=0
+    while [ $confirm_done -eq 0 ]; do
+	if [ $lim -gt 2 ]; then
+	    printf "  Please verify that this command is correct\n1   *OK        Execute this command\n2    Cancel    Cancel the operation\n3    Modify    Modify the parameters of this command\n: "
+	else
+	    printf "  Please verify that this command is correct\n1   *OK        Execute this command\n2    Cancel    Cancel the operation\n: "
+	fi
+	if [ ${#INPUT_stack[*]} -eq 0 ]; then
+	    read INPUT
+	    INPUT_stack=($INPUT)
+	fi
+	INPUT=${INPUT_stack[0]}
+	INPUT_stack=(${INPUT_stack[@]:1})
+	printf "\n-------------------------------------------------------------------------------\n\n"
+	INPUT=`echo "$INPUT"|sed -e 's#[ 	]*##g'|sed -e 's#[^0-9]##g'`
+	if [ "$INPUT" == "" ]; then
+	    let "cfrm_no=1"
+	else
+	    let "cfrm_no=$INPUT"
+	fi
+	if ( (( $cfrm_no < 1 )) || (( $cfrm_no > $lim )) ); then
+	    printf "[YOUR INPUT WAS NOT UNDERSTOOD]\n"
+	else
+	    return $cfrm_no
+	fi
+    done
+}
+
+chkIP()
+{
+    ipcalc -c $1 2>&1 |grep -q "INVALID ADDRESS"
+    if [ $? -ne 0 ]; then
+	echo $1|grep -q ":"
+	if [ $? -eq 0 ]; then
+	    chkIP_result="V6"
+	else
+	    chkIP_result="V4"
+	fi
+    else
+	chkIP_result="invalid"
+    fi
+}
+
+pfix2ip()
+{
+    let "pfix=$1"
+    if [ -z $2 ]; then
+	let "max=32"
+    else
+	let "max=$2"
+    fi
+    if [ $max -eq 32 ]; then
+	let "mask=128"
+	let "bits=8"
+    else # Presume IPv6
+	let "mask=32768"
+	let "bits=16"
+    fi
+    let "i=0"
+    let "part=0"
+    ip=( 0 )
+    while [ $i -lt $max ]; do
+	if [ $pfix -ge 0 ]; then
+	    let "part=( $part >> 1) | $mask"
+	fi
+	let "mod=$i % $bits"
+	if [ $mod -eq 0 ] && [ $i -ne 0 ];then
+	    let "idx=($i / $bits) - 1"
+	    ip[$idx]=$part
+	    #echo $idx $part
+	    let "part=0"
+	fi
+	let "i=$i + 1"
+	let "pfix=$pfix - 1"
+    done
+    if [ $pfix -ge 0 ]; then
+	let "part=( $part >> 1) | $mask"
+    fi
+    let "idx=($i / $bits) - 1"
+    ip[$idx]=$part
+    #echo $idx $part
+    pfix2ip_ret=""
+    for part in ${ip[@]}; do
+	if [ "$pfix2ip_ret" != "" ]; then
+	    if [ $max -eq 32 ]; then
+		pfix2ip_ret="${pfix2ip_ret}."
+	    else
+		pfix2ip_ret="${pfix2ip_ret}:"
+	    fi
+	fi
+	if [ $max -eq 32 ]; then
+	    pfix2ip_ret="${pfix2ip_ret}`printf \"%d\" \"$part\"`"
+	else
+	    pfix2ip_ret="${pfix2ip_ret}`printf \"%x\" \"$part\"`"
+	fi
+    done
+}

@@ -1,0 +1,24 @@
+#!/bin/bash
+
+var=$1
+var_files=()
+if [ -s /var/lib/cc-ovf/ovf.vars ]; then
+    var_files=( ${var_files[@]} /var/lib/cc-ovf/ovf.vars )
+fi
+if [ -s /var/lib/cc-ovf/qcow.vars ]; then
+    var_files=( ${var_files[@]} /var/lib/cc-ovf/qcow.vars )
+fi
+if [ -s /var/lib/cc-ovf/ec2.vars ]; then
+    var_files=( ${var_files[@]} /var/lib/cc-ovf/ec2.vars )
+fi
+if [ -s /var/lib/cc-ovf/configurator.vars ]; then
+    var_files=( ${var_files[@]} /var/lib/cc-ovf/configurator.vars )
+fi
+if [ ${#var_files[@]} -gt 0 ]; then
+    (
+	for var_file in ${var_files[@]}; do
+	    . ${var_file}
+	done
+	echo ${!var} 
+    )
+fi
