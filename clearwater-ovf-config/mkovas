@@ -547,6 +547,7 @@ for node_type in "${node_types[@]}"; do
     if [ 1 -eq 1 ]; then
         printf "Updating settings in VM...\n"
         ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sed -ie '/^ethernet0[.]/d\;/^numvcpus/d\;/^memSize/d' ${vmx} 2>&1|sed -e 's#^#   #'
+	ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sed -ie 's#^sched\[.\]mem\[.\]min\ =\.*#sched.mem.min\ =\ \"4096\"#\;\ s#^sched\[.\]mem\[.\]minSize\ =\.*#sched.mem.minSize\ =\ \"4096\"#' \"${vmx}\" 2>&1|sed -e 's#^#   #'
         scp -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/CC-${node_type}-${ccVersion}${ccQualifier}.eth0.cfg ${vSphere_user}@${ESXi_host}:/tmp 2>&1|sed -e 's#^#   #'
         ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"cat /tmp/CC-${node_type}-${ccVersion}${ccQualifier}.eth0.cfg \>\> ${vmx}\" 2>&1|sed -e 's#^#   #'
         ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} 'sh -c "echo memSize = \\\"4096\\\"" > /tmp/vmx' 2>&1|sed -e 's#^#   #'
