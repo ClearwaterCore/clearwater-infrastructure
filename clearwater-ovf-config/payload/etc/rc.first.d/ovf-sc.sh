@@ -93,6 +93,9 @@ dom.unlink()
 EOS
 }
 
+# Function to print out a command before executing it.
+echo_and_run() { echo "$@" ; "$@" ; }
+
 # Function for logging to syslog and stdout
 log() {
     echo "   $*"
@@ -968,25 +971,18 @@ fi
 if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
     log "INFO: Configuring signaling network namespace"
 
-    echo ip netns add signaling 2>&1 | sed -e 's#^#   #'
-    ip netns add signaling 2>&1 | sed -e 's#^#   #'
-    echo ip link set ${sig_nic} netns signaling 2>&1 | sed -e 's#^#   #'
-    ip link set ${sig_nic} netns signaling 2>&1 | sed -e 's#^#   #'
-    echo ip netns exec signaling ifconfig lo up 2>&1 | sed -e 's#^#   #'
-    ip netns exec signaling ifconfig lo up 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns add signaling 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip link set ${sig_nic} netns signaling 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns exec signaling ifconfig lo up 2>&1 | sed -e 's#^#   #'
 
     # Creating the namespace and moving sig_nic there destroys
     # dhclient's configuration, so we need to redo it:
     nic=${sig_nic}
     . /var/lib/cc-ovf/dhcp.${nic}-ipv4.env
-    echo ip netns exec signaling ip -4 addr flush dev ${nic} label ${nic} 2>&1 | sed -e 's#^#   #'
-    ip netns exec signaling ip -4 addr flush dev ${nic} label ${nic} 2>&1 | sed -e 's#^#   #'
-    echo ip netns exec signaling ip -4 addr add ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} ${new_broadcast_address:+broadcast $new_broadcast_address} dev ${interface} label ${interface} 2>&1 | sed -e 's#^#   #'
-    ip netns exec signaling ip -4 addr add ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} ${new_broadcast_address:+broadcast $new_broadcast_address} dev ${interface} label ${interface} 2>&1 | sed -e 's#^#   #'
-    echo ip netns exec signaling ifconfig ${nic} up 2>&1 | sed -e 's#^#   #'
-    ip netns exec signaling ifconfig ${nic} up 2>&1 | sed -e 's#^#   #'
-    echo ip netns exec signaling arping -c2 -A -I ${nic} ${new_ip_address} 2>&1 | sed -e 's#^#   #'
-    ip netns exec signaling arping -c2 -A -I ${nic} ${new_ip_address} 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns exec signaling ip -4 addr flush dev ${nic} label ${nic} 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns exec signaling ip -4 addr add ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} ${new_broadcast_address:+broadcast $new_broadcast_address} dev ${interface} label ${interface} 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns exec signaling ifconfig ${nic} up 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns exec signaling arping -c2 -A -I ${nic} ${new_ip_address} 2>&1 | sed -e 's#^#   #'
 
     # set intf_metric if IF_METRIC is set or there's more than one router
     intf_metric="$IF_METRIC"
@@ -996,26 +992,21 @@ if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
     for router in $new_routers; do
         if [ "$new_subnet_mask" = "255.255.255.255" ]; then
             # point-to-point connection => set explicit route
-            echo ip netns exec signaling ip -4 route add ${router} dev $interface 2>&1 | sed -e 's#^#   #'
-            ip netns exec signaling ip -4 route add ${router} dev $interface 2>&1 | sed -e 's#^#   #'
+            echo_and_run ip netns exec signaling ip -4 route add ${router} dev $interface 2>&1 | sed -e 's#^#   #'
         fi
 
         # set default route
-        echo ip netns exec signaling ip -4 route add default via ${router} dev ${interface} \
-            ${intf_metric:+metric $intf_metric}  2>&1 | sed -e 's#^#   #'
-        ip netns exec signaling ip -4 route add default via ${router} dev ${interface} \
+        echo_and_run ip netns exec signaling ip -4 route add default via ${router} dev ${interface} \
             ${intf_metric:+metric $intf_metric}  2>&1 | sed -e 's#^#   #'
 
-        echo ip netns exec signaling ping -c1 ${router} 2>&1 | sed -e 's#^#   #'
-        ip netns exec signaling ping -c1 ${router} 2>&1 | sed -e 's#^#   #'
+        echo_and_run ip netns exec signaling ping -c1 ${router} 2>&1 | sed -e 's#^#   #'
     done
 
     if [ ! -z "${sig_ip6}" ]; then
         echo "FIXME: What should we do for IPv6?" 2>&1 | sed -e 's#^#   #'
     fi
 
-    ip netns exec signaling ifconfig 2>&1 | sed -e 's#^#   #'
-    echo ip netns exec signaling ifconfig 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns exec signaling ifconfig 2>&1 | sed -e 's#^#   #'
 
     mkdir -p /etc/netns/signaling
     if [ "${sig_protocol^^}" == "IPV6" ]; then
@@ -1024,27 +1015,20 @@ if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
         printf "nameserver $new_domain_name_servers\n" > /etc/netns/signaling/resolv.conf
     fi
     printf "Debug info (signaling netns routing table):\n" 2>&1 | sed -e 's#^#   #'
-    echo ip netns exec signaling route 2>&1 | sed -e "s#^#     ${LINENO} #"
-    ip netns exec signaling route 2>&1 | sed -e "s#^#     ${LINENO} #"
-    echo ip netns 2>&1 | sed -e 's#^#   #'
-    ip netns 2>&1 | sed -e 's#^#   #'
+    echo_and_run ip netns exec signaling route 2>&1 | sed -e "s#^#     ${LINENO} #"
+    echo_and_run ip netns 2>&1 | sed -e 's#^#   #'
 
     (
         . /var/lib/cc-ovf/dhcp.${mgmt_nic}-ipv4.env
-        echo route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
-        route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
+        echo_and_run route add default gateway $new_routers dev ${mgmt_nic} 2>&1 | sed -e 's#^#   #'
     )
 fi
 
-echo route 2>&1 | sed -e "s#^#     ${LINENO} #"
-route 2>&1 | sed -e "s#^#     ${LINENO} #"
+echo_and_run route 2>&1 | sed -e "s#^#     ${LINENO} #"
 
-echo killall dhclient 2>&1 | sed -e "s#^#     ${LINENO} #"
-killall dhclient 2>&1 | sed -e "s#^#     ${LINENO} #"
-echo rm -vf /var/run/dhclient*.pid 2>&1 | sed -e "s#^#     ${LINENO} #"
-rm -vf /var/run/dhclient*.pid 2>&1 | sed -e "s#^#     ${LINENO} #"
-echo service networking restart 2>&1 | sed -e "s#^#     ${LINENO} #"
-service networking restart 2>&1 | sed -e "s#^#     ${LINENO} #"
+echo_and_run killall dhclient 2>&1 | sed -e "s#^#     ${LINENO} #"
+echo_and_run rm -vf /var/run/dhclient*.pid 2>&1 | sed -e "s#^#     ${LINENO} #"
+echo_and_run service networking restart 2>&1 | sed -e "s#^#     ${LINENO} #"
 
 # Function for substituting our variables into config files
 declare -A vars
