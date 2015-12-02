@@ -23,7 +23,7 @@ if [[ "$reason" = "BOUND" || "$reason" = "REBOOT" || "$reason" = "TIMEOUT" ]]; t
     echo new_domain_name=$new_domain_name
 
     oldhostname=$(hostname)
-    if [ "$oldhostname" != "$new_host_name.$new_domain_name" ]; then
+    if [[ ! -z "$new_host_name" && "$oldhostname" != "$new_host_name.$new_domain_name" ]]; then
         # Rename Host
         echo $new_host_name.$new_domain_name > /etc/hostname
         hostname -F /etc/hostname
