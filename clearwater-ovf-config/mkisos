@@ -232,7 +232,8 @@ bc \
 strace \
 snmp \
 libc6 \
-libc6-i386
+libc6-i386 \
+vim
 "
 
 if [[ ! -e ${mydir}/extras && -d ${mydir}/../../../extras ]]; then
@@ -342,6 +343,7 @@ if [[ ! -r ${mydir}/extras/binary/Packages || $redo_deps -ne 0 ]]; then
 	perlapi-5.18.2
 	python
 	perl-tk
+	vim
     )
 
     cedar=(

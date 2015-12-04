@@ -1233,6 +1233,7 @@ if [ -z "$UPSTART_JOB" ]; then
     read RESPONSE
 fi
 
+/usr/bin/clearwater-commission
 /usr/bin/clearwater-show-config
 
 # Close stdout to flush to the log

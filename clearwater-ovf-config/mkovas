@@ -522,6 +522,16 @@ for node_type in "${node_types[@]}"; do
         fi
     done
 
+    printf "Fix file ownership...\n"
+    sta=1
+    while [ $sta -ne 0 ]; do
+        (sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} chown clearwater:clearwater /home/clearwater;sta=$?;echo $sta > /tmp/sta) 2>&1|sed -e 's#^#   #'
+        sta=$(cat /tmp/sta)
+        if [ $sta -ne 0 ]; then
+            continue
+        fi
+    done
+
     printf "Reset to default config files...\n"
     sta=1
     while [ $sta -ne 0 ]; do
@@ -552,7 +562,11 @@ for node_type in "${node_types[@]}"; do
         ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"cat /tmp/CC-${node_type}-${ccVersion}${ccQualifier}.eth0.cfg \>\> ${vmx}\" 2>&1|sed -e 's#^#   #'
         ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} 'sh -c "echo memSize = \\\"4096\\\"" > /tmp/vmx' 2>&1|sed -e 's#^#   #'
         ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} 'sh -c "echo numvcpus = \\\"2\\\"" >> /tmp/vmx' 2>&1|sed -e 's#^#   #'
+        ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} 'sh -c "echo sched.mem.pin = \\\"TRUE\\\"" >> /tmp/vmx' 2>&1|sed -e 's#^#   #'
         ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"cat /tmp/vmx \>\> ${vmx}\" 2>&1|sed -e 's#^#   #'
+        ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} sh -c \"cat ${vmx}\" 2>&1|sed -e 's#^#   #'
+	
+	#read -p "Press enter to continue: " a
 
         printf "Reloading VM CC-${node_type}-${ccVersion}${ccQualifier}...\n"
         ssh -q -i ~/.ssh/core-repo.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${ESXi_host} /bin/vim-cmd vmsvc/reload ${vmid} 2>&1|sed -e 's#^#   #'

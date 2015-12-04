@@ -1,0 +1,66 @@
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#
+# WARNING - THE TOP PORTION OF THIS FILE NOT INTENDED TO BE MANUALLY EDITED
+#
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+if [ -r /tmp/local_config.$(date -d "$(uptime --since)" +%s) ]; then
+    . /tmp/local_config.$(date -d "$(uptime --since)" +%s)
+else
+    if [ "$(ip netns list)" = "signaling" ]; then 
+	signaling_namespace=signaling
+	signaling_dns_server=$(grep "^[[:space:]]*nameserver" \
+            /etc/netns/signaling/resolv.conf | awk '{print $2}'|\
+	sed -e :a -e N -e 's/\n/,/' -e ta)
+	[ -z "$signaling_namespace" ] || 
+	namespace_prefix="ip netns exec $signaling_namespace"
+    else
+	namespace_prefix=
+	signaling_dns_server=$(grep "^[[:space:]]*nameserver" \
+    	    /run/dnsmasq/resolv.conf | awk '{print $2}'|\
+	sed -e :a -e N -e 's/\n/,/' -e ta)
+    fi
+    sig_nic=$( sudo $namespace_prefix /sbin/ifconfig -s 2>&1 |grep eth|\
+	   awk '{print $1}'|head -1)
+    mgmt_nic=$( /sbin/ifconfig -s|grep eth|awk '{print $1}'|head -1)
+
+# Local IP configuration. If we have a V6 IP use it, otherwise use the V4
+    local_ip4=$( sudo $namespace_prefix ip -4 addr show dev $sig_nic 2>&1 |grep global\
+	     |sed -e 's#^.*inet* \([^/]*\)/.*$#\1#' )
+    local_ip=$local_ip4
+    public_ip=$local_ip
+    if /var/cc-ovf/bin/get-var ip_protocol | egrep -q "^[iI][pP][vV]6$"; then
+	local_ip6=$( sudo $namespace_prefix ip -6 addr show dev $sig_nic 2>&1 |\
+    	grep global|sed -e 's#^.*inet6* \([^/]*\)/.*$#\1#' )
+	local_ip=$local_ip6
+    fi
+    if [ "${mgmt_nic}" != "${sig_nic}" ]; then
+	management_ip4=$( ip -4 addr show dev $mgmt_nic 2>&1 |grep global|\
+    	sed -e 's#^.*inet* \([^/]*\)/.*$#\1#' )
+	management_ip6=$( ip -6 addr show dev $mgmt_nic 2>&1 |grep global|\
+        sed -e 's#^.*inet6* \([^/]*\)/.*$#\1#' )
+	management_local_ip=$management_ip4
+	if /var/cc-ovf/bin/get-var ip_protocol | egrep -q "^[iI][pP][vV]6$"; then
+	    management_local_ip=$management_ip6
+	fi
+	management_public_ip=$management_local_ip
+    else
+	management_local_ip=$local_ip
+    fi
+    management_public_ip=$management_local_ip
+
+    home_domain=$(sed -e "s#^$(hostname -s)[.]##" /etc/hostname)
+    public_hostname=$(hostname)
+
+    if [ ! -z "$(/var/cc-ovf/bin/get-var local_site_name)" ]; then
+	local_site_name=$(/var/cc-ovf/bin/get-var local_site_name)
+    fi
+    if [ ! -z "$(/var/cc-ovf/bin/get-var remote_site_name)" ]; then
+	remote_site_name=$(/var/cc-ovf/bin/get-var remote_site_name)
+    fi
+
+    etcd_cluster=$(/var/cc-ovf/bin/get-var etcd_cluster)
+    if [ -z "$etcd_cluster" ]; then
+	etcd_cluster=$(dig +noall +answer etcd-cluster.${home_domain}|\
+        awk '{print $5}' ORS=','|sed -e 's#,$##')
+    fi
+fi
