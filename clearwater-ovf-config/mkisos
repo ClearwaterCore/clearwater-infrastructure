@@ -233,7 +233,11 @@ strace \
 snmp \
 libc6 \
 libc6-i386 \
-vim
+vim \
+ftp \
+rsync \
+telnet \
+landscape-common \
 "
 
 if [[ ! -e ${mydir}/extras && -d ${mydir}/../../../extras ]]; then
@@ -344,6 +348,10 @@ if [[ ! -r ${mydir}/extras/binary/Packages || $redo_deps -ne 0 ]]; then
 	python
 	perl-tk
 	vim
+	ftp
+	rsync
+	telnet
+	landscape-common 
     )
 
     cedar=(
