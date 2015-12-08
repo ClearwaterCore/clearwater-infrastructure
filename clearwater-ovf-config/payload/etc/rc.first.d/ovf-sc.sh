@@ -46,6 +46,15 @@ set +e
 doIPv4=1
 doIPv6=0
 
+# Initialize VM type variables
+amEC2VM=0
+amVMWVM=0
+amOSVM=0
+
+# Regex pattern of config variable that can be changed
+vars_change_allowed="(self_config_mode)"
+
+# Init logging
 rm -f /var/log/ovf-sc.dhclient*.log
 touch /var/log/ovf-sc.dhclient-4.log /var/log/ovf-sc.dhclient-6.log
 
@@ -68,7 +77,6 @@ printf "\n\
 "
 
 # Check for running in AWS EC2 VM
-amEC2VM=0
 if [ -x /usr/bin/ec2-metadata ]; then
     /usr/bin/ec2-metadata -i
     if [ $? -eq 0 ]; then
@@ -176,6 +184,8 @@ if [ ! -s /var/lib/cc-ovf/ovf.xml ]; then
             err "ERROR: Cannot get VA parameters through VMware Tools. Halting ..."
         fi
     fi
+else
+    amVMWVM=1
 fi
 
 # Convert VA properties to bash variables
@@ -198,7 +208,7 @@ cfg_dev=$(find_payload)
 # Load environment variables from guestinfo or from '/ovf.env' on CD
 if [ -s /var/lib/cc-ovf/ovf.vars ]; then
     # vApp variable file doesn't exist or is empty.
-    vars_md5=$(md5sum -b /var/lib/cc-ovf/ovf.vars|awk '{print $1}')
+    vars_md5=$(cat /var/lib/cc-ovf/ovf.vars|grep -Ev "^${vars_change_allowed}"|md5sum -b|awk '{print $1}')
     if [ -e /var/lib/cc-ovf/ovf.md5 ]; then
         if [ "$(cat /var/lib/cc-ovf/ovf.md5)" != "$vars_md5" ]; then
             err "ERROR: Changes to VMware (vApp) properties not allowed! Halting ..."
@@ -206,12 +216,14 @@ if [ -s /var/lib/cc-ovf/ovf.vars ]; then
     fi
     printf "$vars_md5\n" > /var/lib/cc-ovf/ovf.md5
 
-    printf "VA environment (per VMware/OpenStack properties):\n" 2>&1 | sed -e 's#^#   #'
+    printf "VA environment (per VMware properties):\n" 2>&1 | sed -e 's#^#   #'
     cat /var/lib/cc-ovf/ovf.vars 2>&1 | sed -e 's#^#     #'
     . /var/lib/cc-ovf/ovf.vars
     log "Applying VA customizations (per VMWare properties)..."
 else
     if [ -e /dev/disk/by-label/config-2 ]; then
+	amOSVM=1
+
         mkdir -p /mnt/os.config
         echo mount /dev/disk/by-label/config-2 /mnt/os.config 2>&1 | sed -e 's#^#   #'
         mount /dev/disk/by-label/config-2 /mnt/os.config 2>&1 | sed -e 's#^#   #'
@@ -230,7 +242,7 @@ else
         echo umount /dev/disk/by-label/config-2 2>&1 | sed -e 's#^#   #'
         umount /dev/disk/by-label/config-2 2>&1 | sed -e 's#^#   #'
 
-        vars_md5=$(md5sum -b /var/lib/cc-ovf/qcow.vars|awk '{print $1}')
+	vars_md5=$(cat /var/lib/cc-ovf/qcow.vars|grep -Ev "^${vars_change_allowed}"|md5sum -b|awk '{print $1}')
         if [ -e /var/lib/cc-ovf/qcow.md5 ]; then
             if [ "$(cat /var/lib/cc-ovf/qcow.md5)" != "$vars_md5" ]; then
                 err "ERROR: Changes to OpenStack meta-data not allowed! Halting ..."
@@ -251,7 +263,7 @@ else
 	    ec2-metadata --user-data | sed -e 's#^user-data:##' | python -mjson.tool 2>&1 | sed -e 's#^#   #'
 
 	    ec2-metadata --user-data | sed -e 's#^user-data:##' | python -mjson.tool | sed -n '/"meta":/,//{/"meta"/{p;n};/}/{q};p}'|grep -v "meta\":"|sed -e 's/^[[:space:]]*"//;s/":[[:space:]]*/=/;s/,$//' >> /var/lib/cc-ovf/ec2.vars
-	    vars_md5=$(md5sum -b /var/lib/cc-ovf/ec2.vars|awk '{print $1}')
+	    vars_md5=$(cat /var/lib/cc-ovf/ec2.vars|grep -Ev "^${vars_change_allowed}"|md5sum -b|awk '{print $1}')
 	    if [ -e /var/lib/cc-ovf/ec2.md5 ]; then
 		if [ "$(cat /var/lib/cc-ovf/ec2.md5)" != "$vars_md5" ]; then
 		    err "ERROR: Changes to EC2 user-data not allowed! Halting ..."
@@ -297,6 +309,21 @@ if [[ ! -s /var/lib/cc-ovf/ovf.vars && ! -s /var/lib/cc-ovf/qcow.vars ]]; then
         log "WARN: No VA environment..."
         run_configurator=yes
     fi
+fi
+
+if [ "${self_config_mode^^}" == "DISABLED" ]; then
+    printf > /etc/motd "\
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\
+!!                                                                           !!\n\
+!!                       SELF-CONFIGURATION DISABLED                         !!\n\
+!!                                                                           !!\n\
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n" "$*"
+    cat /etc/motd
+    logger "SELF-CONFIGURATION DISABLED"
+
+    # Close stdout to flush to the log
+    exec 1>&-
+    exit 0
 fi
 
 if [[ $amEC2VM -eq 0 && "${run_configurator^^}" == "YES" ]]; then

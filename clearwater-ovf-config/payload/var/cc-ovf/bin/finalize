@@ -1,0 +1,38 @@
+#!/bin/bash
+
+mydir=$(cd `dirname $0`;pwd)
+
+# Add config logging to init.d scripts
+for init_file in /etc/init.d/ralf /etc/init.d/sprout /etc/init.d/homestead /etc/init.d/homestead-prov; do
+    if [ -x ${init_file} ]; then 
+	if ! grep "^log_config[(][)]" ${init_file}; then
+	    sed -i~ '/. \/lib\/lsb\/init-functions/a \
+\
+#\
+# Function to log the output of clearwater-show-config to syslog\
+#\
+log_config() \
+{\
+   (\
+      clearwater-show-config > /tmp/$$ 2>&1\
+      logger -t "clearwater-show-config" -f /tmp/$$ -p local6.info\
+      rm -f /tmp/$$\
+   )\
+}' ${init_file}
+	fi
+	sed -i~ 's#^\([[:space:]]*\)do_start\([[:space:]]*\)$#\1(do_start;sta=$?;log_config;exit $sta)\2#g' ${init_file}
+    fi
+    rm -f ${init_file}~
+done
+
+# Add auto-upload to etcd init.d script
+if [ -x /etc/init.d/clearwater-etcd ]; then 
+    if ! grep "start auto-upload" /etc/init.d/clearwater-etcd; then
+	sed -i~ '/[[:space:]]*wait_for_etcd[[:space:]]*$/a \
+\
+	# Start the auto-upload job\
+	start auto-upload || true' /etc/init.d/clearwater-etcd
+	rm -f /etc/init.d/clearwater-etcd~
+    fi
+fi
+

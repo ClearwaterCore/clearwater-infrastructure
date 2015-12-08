@@ -1,5 +1,9 @@
     <ProductSection>
       <Info>Information about the installed software</Info>
+      <Category>Self-configuration</Category>
+      <Property ovf:key="config_mode" ovf:qualifiers="ValueMap{&quot;ENABLED&quot;,&quot;DISABLED&quot;}" ovf:type="string" ovf:userConfigurable="true" ovf:value="ENABLED">
+        <Label>self_config_mode</Label>
+      </Property>
       <Category>CC Config</Category>
       <Property ovf:key="etcd_cluster" ovf:type="string" ovf:userConfigurable="true">
         <Label>etcd_cluster</Label>
