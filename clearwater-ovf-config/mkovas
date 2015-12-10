@@ -512,6 +512,16 @@ for node_type in "${node_types[@]}"; do
         fi
     done
 
+    printf "Fix file ownership...\n"
+    sta=1
+    while [ $sta -ne 0 ]; do
+        (sshpass -p '!bootstrap' ssh -q -T -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${vSphere_user}@${VM_ip} chown clearwater:clearwater /home/clearwater;sta=$?;echo $sta > /tmp/sta) 2>&1|sed -e 's#^#   #'
+        sta=$(cat /tmp/sta)
+        if [ $sta -ne 0 ]; then
+            continue
+        fi
+    done
+
     printf "Reset hostname...\n"
     sta=1
     while [ $sta -ne 0 ]; do
