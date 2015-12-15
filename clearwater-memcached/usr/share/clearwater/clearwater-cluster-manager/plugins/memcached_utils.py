@@ -33,6 +33,8 @@
 from metaswitch.clearwater.cluster_manager.plugin_utils import WARNING_HEADER
 from metaswitch.clearwater.etcd_shared.plugin_utils import safely_write
 from metaswitch.clearwater.cluster_manager import constants
+import sys
+import socket
 
 def write_memcached_cluster_settings(filename, cluster_view):
     """Writes out the memcached cluster_settings file"""
@@ -56,7 +58,7 @@ def write_memcached_cluster_settings(filename, cluster_view):
             except socket.error:
                 servers_ips.append("{}:11211".format(k))
             
-    servers_ips = sorted(servers_ips)
+    servers_ips.sort()
 
     new_servers_ips = []
     for k, v in cluster_view.iteritems():
@@ -67,7 +69,7 @@ def write_memcached_cluster_settings(filename, cluster_view):
             except socket.error:
                 new_servers_ips.append("{}:11211".format(k))
             
-    new_servers_ips = sorted(new_servers_ips)
+    new_servers_ips.sort()
 
     new_file_contents = WARNING_HEADER + "\n"
 
