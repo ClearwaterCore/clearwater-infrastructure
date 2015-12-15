@@ -46,9 +46,17 @@ def write_memcached_cluster_settings(filename, cluster_view):
                                 constants.NORMAL_CONFIG_CHANGED,
                                 constants.JOINING_ACKNOWLEDGED_CHANGE,
                                 constants.JOINING_CONFIG_CHANGED]
-    servers_ips = sorted(["{}:11211".format(k)
-                          for k, v in cluster_view.iteritems()
-                          if v in valid_servers_states])
+
+    servers_ips = []
+    for k, v in cluster_view.iteritems():
+        if v in valid_servers_states:
+            try:
+                socket.inet_pton(socket.AF_INET6, k)
+                servers_ips.append("[{}]:11211".format(k))
+            except socket.error:
+                servers_ips.append("{}:11211".format(k))
+            
+    servers_ips = sorted(servers_ips)
 
     new_servers_ips = sorted(["{}:11211".format(k)
                               for k, v in cluster_view.iteritems()
