@@ -214,22 +214,42 @@ else
         if [ -e /mnt/os.config/openstack/latest/meta_data.json ]; then
             cat /mnt/os.config/openstack/latest/meta_data.json | python -mjson.tool | sed -n '/"meta":/,//{/"meta"/{p;n};/}/{q};p}'|grep -v "meta\":"|sed -e 's/^[[:space:]]*"//;s/":[[:space:]]*/=/;s/,$//' >> /var/lib/cc-ovf/qcow.vars
         fi
-        
+
         echo umount /dev/disk/by-label/config-2 2>&1 | sed -e 's#^#   #'
         umount /dev/disk/by-label/config-2 2>&1 | sed -e 's#^#   #'
 
         vars_md5=$(md5sum -b /var/lib/cc-ovf/qcow.vars|awk '{print $1}')
         if [ -e /var/lib/cc-ovf/qcow.md5 ]; then
             if [ "$(cat /var/lib/cc-ovf/qcow.md5)" != "$vars_md5" ]; then
-                err "ERROR: Changes to OpenStack meta-data not allowed! Halting ..."
+                err "ERROR: Changes to OpenStack config drive not allowed! Halting ..."
             fi
         fi
         printf "$vars_md5\n" > /var/lib/cc-ovf/qcow.md5
 
         if [ -s /var/lib/cc-ovf/qcow.vars ]; then
-            printf "VA environment (per OpenStack properties):\n" 2>&1 | sed -e 's#^#   #'
+            printf "VA environment (per OpenStack config drive):\n" 2>&1 | sed -e 's#^#   #'
             cat /var/lib/cc-ovf/qcow.vars 2>&1 | sed -e 's#^#     #'
             . /var/lib/cc-ovf/qcow.vars
+        fi
+    else
+        # Fetch QCOW2 variables from Metadata Service
+        rm -f /var/lib/cc-ovf/qcow.vars
+        wget -qO- --tries=1 --timeout=2 http://169.254.169.254/openstack/latest/meta_data.json | python -mjson.tool | sed -n '/"meta":/,//{/"meta"/{p;n};/}/{q};p}'|grep -v "meta\":"|sed -e 's/^[[:space:]]*"//;s/":[[:space:]]*/=/;s/,$//' >> /var/lib/cc-ovf/qcow.vars
+        if [ $? -eq 0 ]; then
+            # Load OpenStack configuration variables
+            vars_md5=$(md5sum -b /var/lib/cc-ovf/qcow.vars|awk '{print $1}')
+            if [ -e /var/lib/cc-ovf/qcow.md5 ]; then
+                if [ "$(cat /var/lib/cc-ovf/qcow.md5)" != "$vars_md5" ]; then
+                   err "ERROR: Changes to OpenStack meta-data not allowed! Halting ..."
+                fi
+            fi
+            printf "$vars_md5\n" > /var/lib/cc-ovf/qcow.md5
+
+            if [ -s /var/lib/cc-ovf/qcow.vars ]; then
+                printf "Appliance environment (per OpenStack meta-data service):\n" 2>&1 | sed -e 's#^#   #'
+                cat /var/lib/cc-ovf/qcow.vars 2>&1 | sed -e 's#^#     #'
+                . /var/lib/cc-ovf/qcow.vars
+            fi
         fi
     fi
 fi
@@ -323,7 +343,7 @@ while [ $i -lt $(ip addr show|grep "eth[0-9]:"|wc -l) ]; do
             mgmt_nic=eth$i
         fi
     fi
-    
+
     let "i=$i + 1"
 done
 if [ -z "$mgmt_nic" ]; then
@@ -341,7 +361,7 @@ while [ $i -lt $(ip addr show|grep "eth[0-9]:"|wc -l) ]; do
             fi
         fi
     fi
-    
+
     let "i=$i + 1"
 done
 if [ -z "$sig_nic" ]; then
@@ -544,12 +564,12 @@ if [ $doIPv4 -ne 0 ]; then
         fi
         eval "declare -A eth="${eth_str#*=}
         eval "declare -A keys="${key_str#*=}
-                
+
         #Debugging
         printf "Debug info:\n" 2>&1 | sed -e 's#^#   #'
         declare -p eth 2>&1 | sed -e "s#^#     ${LINENO} #"
         declare -p keys 2>&1 | sed -e "s#^#     ${LINENO} #"
-                
+
         if [ ${#keys[@]} -ne 0 ]; then
             printf "interface \"${nic}\" {\n" >> /etc/dhcp/dhclient.conf
             for k in ${keys[@]}; do
@@ -566,7 +586,7 @@ if [ $doIPv4 -ne 0 ]; then
                     ntp_servers)
                       printf "  supersede ntp-servers ${eth[$k]};\n" >> /etc/dhcp/dhclient.conf
                       ;;
-                    domain_name) 
+                    domain_name)
                       printf "  supersede domain-name \"${eth[$k]}\";\n" >> /etc/dhcp/dhclient.conf
                       ;;
                     domain_search)
@@ -584,7 +604,7 @@ if [ $doIPv4 -ne 0 ]; then
     printf "#### cc-ovf IPv4 interfaces end ####\n" >> /etc/dhcp/dhclient.conf
 
     # Force release of leases and install static fallback leases, if available
-    dhclient -4 -r >> /var/log/ovf-sc.dhclient-4.log 2>&1 
+    dhclient -4 -r >> /var/log/ovf-sc.dhclient-4.log 2>&1
     rm -vf /var/lib/dhcp/dhclient.*leases 2>&1 | sed -e "s#^#   #"
     for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv4.lease" -o -name "${sig_nic}-ipv4.lease" \)); do
         cat ${lease} >> /var/lib/dhcp/dhclient.leases
@@ -592,10 +612,10 @@ if [ $doIPv4 -ne 0 ]; then
 
     # Try DHCP again on all interfaces
     log "Retrying DHCP for ${mgmt_nic}..."
-    dhclient -1 -v ${mgmt_nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
+    dhclient -1 -v ${mgmt_nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1
     if [ "${sig_nic}" != "${mgmt_nic}" ]; then
         log "Retrying DHCP for ${sig_nic}..."
-        dhclient -1 -v ${sig_nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1 
+        dhclient -1 -v ${sig_nic} >> /var/log/ovf-sc.dhclient-4.log 2>&1
     fi
 
     # Debugging
@@ -701,7 +721,7 @@ lease {\n\
         if [ "$(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv4.lease" -o -name "${sig_nic}-ipv4.lease" \)|wc -l)" -ne ${#nics[@]} ]; then
             err "ERROR: Can't determine network configuration!"
         fi
-    fi   
+    fi
 fi
 
 # IPv6 self configuration
@@ -711,7 +731,7 @@ if [ $doIPv6 -ne 0 ]; then
     # Force release of leases and install static fallback leases, if available
     log "Releasing DHCP6 leases..."
     killall dhclient > /dev/null 2>&1
-    dhclient -6 -r -1 >> /var/log/ovf-sc.dhclient-6.log 2>&1 
+    dhclient -6 -r -1 >> /var/log/ovf-sc.dhclient-6.log 2>&1
     rm -vf /var/lib/dhcp/dhclient6.*leases 2>&1 | sed -e "s#^#   #"
     for lease in $(find /var/lib/cc-ovf \( -name "${mgmt_nic}-ipv6.lease" -o -name "${sig_nic}-ipv6.lease" \)); do
         cat ${lease} >> /var/lib/dhcp/dhclient6.leases
@@ -722,11 +742,11 @@ if [ $doIPv6 -ne 0 ]; then
     # Try DHCP6 again on all interfaces
     log "Retrying DHCP6 for ${mgmt_nic}..."
     killall dhclient > /dev/null 2>&1
-    dhclient -6 -v -1 ${mgmt_nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1 
+    dhclient -6 -v -1 ${mgmt_nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1
     if [ "${sig_nic}" != "${mgmt_nic}" ]; then
         log "Retrying DHCP6 for ${sig_nic}..."
         killall dhclient > /dev/null 2>&1
-        dhclient -6 -v -1 ${sig_nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1 
+        dhclient -6 -v -1 ${sig_nic} >> /var/log/ovf-sc.dhclient-6.log 2>&1
     fi
 
     # Debugging
