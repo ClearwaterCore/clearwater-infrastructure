@@ -14,29 +14,29 @@ if [ -e /etc/init.d/ralf ]; then
 else
     # Ralf is optional, so check DNS and allow for no ralf(s)
     if [ ! -z "$(dig +noall +answer ralf.${home_domain}|awk '{print $5}')" ]; then
-	ralf_hostname=ralf.${home_domain}:10888
+        ralf_hostname=ralf.${home_domain}:10888
     fi
 fi
 
-if [ "$(ip netns list)" = "signaling" ]; then 
+if [ "$(ip netns list)" = "signaling" ]; then
     sprout_hostname_mgmt=sprout-mgmt.${home_domain}
     hs_hostname_mgmt=homestead-mgmt.${home_domain}
     if [ ! -z "$(dig +noall +answer ralf.${home_domain}|awk '{print $5}')" ]; then
-	ralf_hostname_mgmt=ralf-mgmt.${home_domain}:10888
+        ralf_hostname_mgmt=ralf-mgmt.${home_domain}:10888
     fi
 fi
 
 if [ -e /etc/init.d/cedar ]; then
     cedar_hostname=cedar.${home_domain}
     if [ -e /etc/init.d/sprout ]; then
-	if [ -e /etc/init.d/homestead ]; then
-	    etcd_cluster_key=COTS
-	fi
+        if [ -e /etc/init.d/homestead ]; then
+            etcd_cluster_key=COTS
+        fi
     fi
 else
     # Cedar is optional, so check DNS and allow for no cedar(s)
     if [ ! -z "$(dig +noall +answer cedar.${home_domain}|awk '{print $5}')" ]; then
-	cedar_hostname=cedar.${home_domain}
+        cedar_hostname=cedar.${home_domain}
     fi
 fi
 
@@ -56,12 +56,11 @@ fi
 # HSS configuration
 if [ ! -e /etc/init.d/homestead-prov ]; then
     if [ ! -z "$(dig +noall +answer SRV _diameter._tcp.${home_domain})" ]; then
-	hss_realm=${home_domain}
-    else   
-	hss_hostname=hss.${home_domain}
-	hss_port=3868
+        hss_realm=${home_domain}
+    else
+        hss_hostname=hss.${home_domain}
+        hss_port=3868
     fi
-    hss_reregistration_time=1800
     hss_mar_lowercase_unknown=Y
 else
     hs_provisioning_hostname=$(. /etc/clearwater/local_config; echo ${management_local_ip}):8889
