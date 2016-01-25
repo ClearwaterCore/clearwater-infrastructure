@@ -234,8 +234,9 @@ else
     else
         # Fetch QCOW2 variables from Metadata Service
         rm -f /var/lib/cc-ovf/qcow.vars
-        wget -qO- --tries=1 --timeout=2 http://169.254.169.254/openstack/latest/meta_data.json | python -mjson.tool | sed -n '/"meta":/,//{/"meta"/{p;n};/}/{q};p}'|grep -v "meta\":"|sed -e 's/^[[:space:]]*"//;s/":[[:space:]]*/=/;s/,$//' >> /var/lib/cc-ovf/qcow.vars
+        wget -qO- --tries=1 --timeout=2 http://169.254.169.254/openstack/latest/meta_data.json > /tmp/qcow.wget
         if [ $? -eq 0 ]; then
+            cat /tmp/qcow.wget | python -mjson.tool | sed -n '/"meta":/,//{/"meta"/{p;n};/}/{q};p}'|grep -v "meta\":"|sed -e 's/^[[:space:]]*"//;s/":[[:space:]]*/=/;s/,$//' >> /var/lib/cc-ovf/qcow.vars
             # Load OpenStack configuration variables
             vars_md5=$(md5sum -b /var/lib/cc-ovf/qcow.vars|awk '{print $1}')
             if [ -e /var/lib/cc-ovf/qcow.md5 ]; then
