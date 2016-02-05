@@ -964,10 +964,18 @@ if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
 
     echo_and_run ip netns exec signaling route add default gateway $new_routers dev ${sig_nic} 2>&1 | sed -e 's#^#   #'
     mkdir -p /etc/netns/signaling
+    truncate -s 0 /etc/netns/signaling/resolv.conf
     if [ "${sig_protocol^^}" == "IPV6" ]; then
-        printf "nameserver $new_dhcp6_name_servers\n" > /etc/netns/signaling/resolv.conf
+        # Add one line for each value. Currently separated by whitespace
+        for server in ${new_dhcp6_name_servers}
+        do
+            printf "nameserver $server\n" >> /etc/netns/signaling/resolv.conf
+        done
     else
-        printf "nameserver $new_domain_name_servers\n" > /etc/netns/signaling/resolv.conf
+        for server in ${new_domain_name_servers}
+        do
+            printf "nameserver $server\n" >> /etc/netns/signaling/resolv.conf
+        done
     fi
     printf "Debug info (signaling netns routing table):\n" 2>&1 | sed -e 's#^#   #'
     echo_and_run ip netns exec signaling route 2>&1 | sed -e "s#^#     ${LINENO} #"
