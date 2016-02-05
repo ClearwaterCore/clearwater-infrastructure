@@ -957,7 +957,11 @@ if [[ "${sig_nic}" != "${mgmt_nic}" && ! -z "$new_domain_name_servers" ]]; then
     echo_and_run ip netns add signaling 2>&1 | sed -e 's#^#   #'
     echo_and_run ip link set ${sig_nic} netns signaling 2>&1 | sed -e 's#^#   #'
     echo_and_run ip netns exec signaling ifconfig lo up 2>&1 | sed -e 's#^#   #'
-    echo_and_run ip netns exec signaling ifconfig ${sig_nic} ${sig_ip4} netmask ${sig_subnet_mask} up 2>&1 | sed -e 's#^#   #'
+
+    # $new_subnet_mask is configured from /var/lib/cc-ovf/dhcp.eth1-ipv4.env
+    # which we read further up and contains either the vApp property or that
+    # received from DHCP.
+    echo_and_run ip netns exec signaling ifconfig ${sig_nic} ${sig_ip4} netmask ${new_subnet_mask} up 2>&1 | sed -e 's#^#   #'
     if [ ! -z "${sig_ip6}" ]; then
         echo_and_run ip netns exec signaling ifconfig eth1 inet6 add ${sig_ip6}/${new_ip6_prefixlen} up 2>&1 | sed -e 's#^#   #'
     fi
