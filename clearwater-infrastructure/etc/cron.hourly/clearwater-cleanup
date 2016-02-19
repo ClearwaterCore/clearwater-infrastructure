@@ -1,12 +1,11 @@
 #!/bin/bash
 
-exec >  >( stdbuf -i0 -o0 -e0 tee /var/log/clearwater-cleanup.log )
-exec 2>&1
+exec >/var/log/clearwater-cleanup.log
 
 set +e
 
-echo /usr/bin/clearwater-cleandir /var/log /var/clearwater-diags-monitor/dumps --limit 10% --before now
-/usr/bin/clearwater-cleandir /var/log /var/clearwater-diags-monitor/dumps --limit 10% --before now
+command='/usr/bin/clearwater-cleandir /var/log /var/clearwater-diags-monitor/dumps --limit 10% --before now'
+echo "$command"
+$command
 
-exec 1>&-
 exit 0
