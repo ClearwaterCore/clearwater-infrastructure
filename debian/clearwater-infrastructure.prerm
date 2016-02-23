@@ -68,6 +68,17 @@ case "$1" in
         done
 
         [ ! -d /etc/skel ] || remove_section /etc/skel/.bashrc clearwater-infrastructure
+
+        # BEGIN METATRACKER ENVIRONMENT REMOVAL
+
+        # Delete Metatracker script directory
+        rm -rf /var/opt/MetaTracker
+
+        # Explicitly remove the metatracker rsyslog file 30-metatracker.conf and restart rsyslog
+        rm /etc/rsyslog.d/30-metatracker.conf
+        service rsyslog restart
+
+        # END METATRACKER ENVIRONMENT REMOVAL
     ;;
 
     failed-upgrade)
