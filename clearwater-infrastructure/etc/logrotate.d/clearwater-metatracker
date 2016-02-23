@@ -1,0 +1,13 @@
+# MetaTracker log files
+/var/opt/MetaTracker/audit.txt {
+  rotate 1
+  size 10M
+  missingok
+  copytruncate
+}
+/var/opt/MetaTracker/logs.txt {
+  rotate 1
+  size 10M
+  missingok
+  copytruncate
+}

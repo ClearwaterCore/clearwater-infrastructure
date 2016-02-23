@@ -99,6 +99,23 @@ case "$1" in
         if [ -x "/etc/init.d/clearwater-snmp-alarm-agent" ]; then
           service clearwater-snmp-alarm-agent stop || /bin/true
         fi
+
+        # BEGIN METATRACKER ENVIRONMENT SETUP
+
+        # Create Metatracker script directory
+        mkdir -p /var/opt/MetaTracker
+
+        # Ensure audit.txt and logs.txt log files exist
+        touch /var/opt/MetaTracker/audit.txt
+        touch /var/opt/MetaTracker/logs.txt
+
+        # Give all users permissions to access to the MetaTracker directory
+        chmod -R a+rwx /var/opt/MetaTracker
+
+        # Restart rsyslog to pick up the metatracker rsyslog file 30-metatracker.conf just installed
+        service rsyslog restart
+
+        # END METATRACKER ENVIRONMENT SETUP
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
