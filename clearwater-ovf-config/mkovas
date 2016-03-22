@@ -557,6 +557,16 @@ for node_type in "${node_types[@]}"; do
         fi
     done
 
+    printf "Disable root password access via SSH...\n"
+    sta=1
+    while [ $sta -ne 0 ]; do
+        (${SSH_VM} sed -i~ \'s#PermitRootLogin yes#PermitRootLogin without-password#\' /etc/ssh/sshd_config;sta=$?;echo $sta > /tmp/sta) 2>&1|sed -e 's#^#   #'
+        sta=$(cat /tmp/sta)
+        if [ $sta -ne 0 ]; then
+            continue
+        fi
+    done
+
     VM_power_down CC-${node_type}-${ccVersion}${ccQualifier}
 done
 
