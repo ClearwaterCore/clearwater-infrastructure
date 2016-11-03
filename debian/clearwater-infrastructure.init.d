@@ -55,11 +55,14 @@ SCRIPTNAME=/etc/init.d/$NAME
 [ -r /etc/default/$NAME ] && . /etc/default/$NAME
 
 # Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
+[ -r /lib/init/vars.sh ] && . /lib/init/vars.sh
 
 # Define LSB log_* functions.
 # Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
 . /lib/lsb/init-functions
+
+# Include the clearwater init helpers.
+. /usr/share/clearwater/utils/init-utils.bash
 
 #
 # Function that starts the daemon/service
@@ -73,18 +76,6 @@ do_start()
             $SCRIPT
           fi
         done
-
-        # Reload monit to pick up any changes to its config files
-        reload clearwater-monit
-
-        # Restart the socket factories if they're running to pick up any changes
-        # in namespace configuration
-        if ( status clearwater-socket-factory-mgmt 2>&1 | grep start ); then
-          restart clearwater-socket-factory-mgmt
-        fi
-        if ( status clearwater-socket-factory-sig 2>&1 | grep start ); then
-          restart clearwater-socket-factory-sig
-        fi
 
         return 0
 }

@@ -43,23 +43,25 @@ then
   exit 1
 fi
 
-if [[ $# -lt 1 || $# -gt 4 ]]
+if [[ $# -lt 1 || $# -gt 5 ]]
 then
-  echo "Usage: clearwater-aio-install [auto_config_package] <repo> <number_start> <number_count>"
+  echo "Usage: clearwater-aio-install [auto_config_package] <install_repo> <updates_repo> <number_start> <number_count>"
   exit 1
 fi
 
 auto_package=$1
-repo=$2
-number_start=$3
-number_count=$4
+install_repo=$2
+updates_repo=$3
+number_start=$4
+number_count=$5
 
-[ -n "$repo" ] || repo=http://repo.cw-ngv.com/stable
+[ -n "$install_repo" ] || install_repo=http://repo.cw-ngv.com/stable
+[ -n "$updates_repo" ] || updates_repo=http://repo.cw-ngv.com/stable
 [ -n "$number_start" ] || number_start=6505550000
 [ -n "$number_count" ] || number_count=1000
 
 # Set up the repo
-echo deb $repo binary/ > /etc/apt/sources.list.d/clearwater.list
+echo deb $install_repo binary/ > /etc/apt/sources.list.d/clearwater.list
 curl -L http://repo.cw-ngv.com/repo_key | sudo apt-key add -
 apt-get update
 
@@ -67,15 +69,12 @@ apt-get update
 export DEBIAN_FRONTEND=noninteractive
 apt-get install -y --force-yes $auto_package clearwater-management clearwater-cassandra < /dev/null
 
-# Patch Cassandra's configuration to reduce its memory usage, and stop it to
-# make monit restart it
-sed --follow-symlinks -e 's/#MAX_HEAP_SIZE=".*"/MAX_HEAP_SIZE="512M"/g' -i /etc/cassandra/cassandra-env.sh
-sed --follow-symlinks -e 's/#HEAP_NEWSIZE=".*"/HEAP_NEWSIZE="128M"/g' -i /etc/cassandra/cassandra-env.sh
-service cassandra stop
-
 # Install the remaining clearwater packages
-apt-get install -y --force-yes ellis bono restund sprout homer homestead homestead-prov clearwater-prov-tools < /dev/null
+apt-get install -y --force-yes ellis-node bono-node restund sprout-node homer-node homestead-node clearwater-prov-tools < /dev/null
 
 # Create numbers on Ellis
 export PATH=/usr/share/clearwater/ellis/env/bin:$PATH
 python /usr/share/clearwater/ellis/src/metaswitch/ellis/tools/create_numbers.py --start $number_start --count $number_count
+
+# Now switch over to using the repo we expect to get updates from.
+echo deb $updates_repo binary/ > /etc/apt/sources.list.d/clearwater.list

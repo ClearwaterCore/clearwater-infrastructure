@@ -60,11 +60,17 @@ DAEMON=/usr/share/clearwater/bin/clearwater_diags_monitor
 [ -r /etc/default/$NAME ] && . /etc/default/$NAME
 
 # Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
+[ -r /lib/init/vars.sh ] && . /lib/init/vars.sh
 
 # Define LSB log_* functions.
 # Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
 . /lib/lsb/init-functions
+
+# Include /etc/init.d/functions if available.
+[ -r /etc/init.d/functions ] && . /etc/init.d/functions
+
+# Include the clearwater init helpers.
+. /usr/share/clearwater/utils/init-utils.bash
 
 #
 # Function that starts the daemon/service
@@ -82,10 +88,15 @@ do_start()
         #   0 if daemon has been started
         #   1 if daemon was already running
         #   2 if daemon could not be started
-        start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
-                || return 1
-        start-stop-daemon --start --quiet --background --make-pidfile --pidfile $PIDFILE --nicelevel 19 --iosched idle --exec $DAEMON \
-                || return 2
+        if have_start_stop_daemon; then
+                start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
+                        || return 1
+                start-stop-daemon --start --quiet --background --make-pidfile --pidfile $PIDFILE --nicelevel 19 --iosched idle --exec $DAEMON \
+                        || return 2
+        else
+                [ ! -f $PIDFILE ] || ! checkpid $(cat $PIDFILE) || return 1
+                ionice -n 3 nice -n 19 daemonize -p $PIDFILE $DAEMON || return 2
+        fi
 
         return 0
 }
@@ -101,8 +112,11 @@ do_stop()
         #   1 if daemon was already stopped
         #   2 if daemon could not be stopped
         #   other if a failure occurred
-        start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE
-        return $?
+        if have_start_stop_daemon; then
+                start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE
+        else
+                stop_daemon $PIDFILE TERM 30
+        fi
 }
 
 #
