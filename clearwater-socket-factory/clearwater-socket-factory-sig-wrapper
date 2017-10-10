@@ -34,6 +34,11 @@
 # under which the OpenSSL Project distributes the OpenSSL toolkit software,
 # as those licenses appear in the file LICENSE-OPENSSL.
 
+# Make sure that the socket factory itself is not already running.
+# It might be, if the wrapper script was previously killed (by the OOM killer,
+# say) leaving the grandchild clearwater_socket_factory process still running.
+pkill -9 -f -x '/usr/share/clearwater/bin/clearwater_socket_factory.*--namespace signaling'
+
 # Pull in get_daemon_args function
 . /usr/share/clearwater/bin/clearwater-socket-factory-common
 
