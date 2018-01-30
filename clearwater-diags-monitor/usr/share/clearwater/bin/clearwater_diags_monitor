@@ -602,9 +602,6 @@ do
   get_cw_package_checksums
   get_package_info
 
-  # Monit related files.
-  copy_to_dump '/var/lib/monit'
-
   # Networking information.
   #
   # Connectivity between nodes is handled in per-node hooks as security groups
