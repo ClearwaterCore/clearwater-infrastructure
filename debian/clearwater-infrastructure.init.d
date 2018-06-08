@@ -69,13 +69,19 @@ SCRIPTNAME=/etc/init.d/$NAME
 #
 do_start()
 {
+        logger -t "$NAME" "Running scripts from /usr/share/clearwater/infrastructure/scripts/ ..."
+
         # Fill in any files that depend on it
+        count=0
         for SCRIPT in $(ls -1 /usr/share/clearwater/infrastructure/scripts/* 2>/dev/null)
         do
           if [ -f "$SCRIPT" ]; then
             $SCRIPT
+            count=$((count+1))
           fi
         done
+
+        logger -t "$NAME" "Ran $count scripts from /usr/share/clearwater/infrastructure/scripts/"
 
         return 0
 }
@@ -99,7 +105,7 @@ do_reload() {
 
 case "$1" in
   start)
-    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC " "$NAME"
+    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC " "$NAME" | logger -s -t "$NAME"
     do_start
     case "$?" in
                 0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
@@ -107,7 +113,7 @@ case "$1" in
         esac
   ;;
   stop)
-        [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+        [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME" | logger -s -t "$NAME"
         do_stop
         case "$?" in
                 0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
@@ -118,12 +124,12 @@ case "$1" in
         echo "clearwater-infrastructure is not a long-running daemon so does not have a 'status' command"
         ;;
   reload|force-reload)
-        log_daemon_msg "Reloading $DESC" "$NAME"
+        log_daemon_msg "Reloading $DESC" "$NAME" | logger -s -t "$NAME"
         do_reload
         log_end_msg $?
         ;;
   restart)
-        log_daemon_msg "Restarting $DESC" "$NAME"
+        log_daemon_msg "Restarting $DESC" "$NAME" | logger -s -t "$NAME"
         do_stop
         case "$?" in
           0|1)
